@@ -1,5 +1,7 @@
-﻿using JobTracker.Api.Models;
+﻿using JobTracker.Api.Data;
+using JobTracker.Api.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Api.Controllers;
 
@@ -7,27 +9,25 @@ namespace JobTracker.Api.Controllers;
 [Route("api/applications")]
 public class ApplicationsController : ControllerBase
 {
-    private static readonly List<JobApplication> Applications =
-    [
-        new JobApplication
-        {
-            Id = 1,
-            Company = "Blah blah blah",
-            Position = "Software Engineering Intern",
-            Status = "Interested",
-            Location = "Brno"
-        }
-    ];
+    private readonly AppDbContext _db;
+
+    public ApplicationsController(AppDbContext db)
+    {
+        _db = db;
+    }
 
     [HttpGet]
-    public ActionResult<List<JobApplication>> GetAll()
+    public async Task<ActionResult<List<JobApplication>>> GetAll()
     {
-        return Ok(Applications);
+        var applications = await _db.Applications.ToListAsync();
+
+        return Ok(applications);
     }
+
     [HttpGet("{id}")]
-    public ActionResult<JobApplication> GetById(int id)
+    public async Task<ActionResult<JobApplication>> GetById(int id)
     {
-        var application = Applications.FirstOrDefault(x => x.Id == id);
+        var application = await _db.Applications.FindAsync(id);
 
         if (application is null)
         {
@@ -36,13 +36,16 @@ public class ApplicationsController : ControllerBase
 
         return Ok(application);
     }
+
     [HttpPost]
-    public ActionResult<JobApplication> Create(JobApplication application)
+    public async Task<ActionResult<JobApplication>> Create(
+        JobApplication application)
     {
-        application.Id = Applications.Count + 1;
         application.CreatedAt = DateTime.UtcNow;
 
-        Applications.Add(application);
+        _db.Applications.Add(application);
+
+        await _db.SaveChangesAsync();
 
         return CreatedAtAction(
             nameof(GetById),
@@ -50,5 +53,40 @@ public class ApplicationsController : ControllerBase
             application
         );
     }
-}
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var application = await _db.Applications.FindAsync(id);
 
+        if (application is null)
+        {
+            return NotFound();
+        }
+
+        _db.Applications.Remove(application);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpPut]
+    public async Task<IActionResult> Update(int id, JobApplication updated)
+    {
+        var application = await _db.Applications.FindAsync(id);
+        if (application is null)
+        {
+            return NotFound();
+        }
+        application.Company = updated.Company;
+        application.Position = updated.Position;
+        application.Status = updated.Status;
+        application.Location = updated.Location;
+        application.JobUrl = updated.JobUrl;
+        
+        await _db.SaveChangesAsync();
+        return NoContent();
+        
+    }
+
+   
+}
