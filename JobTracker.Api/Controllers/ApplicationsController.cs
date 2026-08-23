@@ -31,15 +31,34 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll()
+    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(
+        string? status,
+        string? search)
     {
-        var applications = await _db.Applications.ToListAsync();
+        var query = _db.Applications.AsQueryable();
 
-        var response = applications
-            .Select(ToResponse)
-            .ToList();
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(application =>
+                application.Status == status);
+        }
 
-        return Ok(response);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+
+            query = query.Where(application =>
+                EF.Functions.ILike(application.Company, pattern) ||
+                EF.Functions.ILike(application.Position, pattern) ||
+                (application.Location != null &&
+                 EF.Functions.ILike(application.Location, pattern)));
+        }
+
+        var applications = await query
+            .OrderByDescending(application => application.CreatedAt)
+            .ToListAsync();
+
+        return Ok(applications.Select(ToResponse).ToList());
     }
 
     [HttpGet("{id}")]
