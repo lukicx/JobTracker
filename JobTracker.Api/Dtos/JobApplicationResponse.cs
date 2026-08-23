@@ -1,4 +1,6 @@
-﻿namespace JobTracker.Api.Dtos;
+﻿using JobTracker.Api.Models;
+
+namespace JobTracker.Api.Dtos;
 
 public class JobApplicationResponse
 {
@@ -8,7 +10,7 @@ public class JobApplicationResponse
 
     public string Position { get; set; } = string.Empty;
 
-    public string Status { get; set; } = string.Empty;
+    public ApplicationStatus Status { get; set; } = ApplicationStatus.Interested;
 
     public string? Location { get; set; }
 

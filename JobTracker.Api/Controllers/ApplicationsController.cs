@@ -31,16 +31,14 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(
-        string? status,
-        string? search)
+    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(ApplicationStatus? status, string? search)
     {
         var query = _db.Applications.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(status))
+        if (status.HasValue)
         {
             query = query.Where(application =>
-                application.Status == status);
+                application.Status == status.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -75,8 +73,7 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<JobApplicationResponse>> Create(
-        CreateJobApplicationRequest request)
+    public async Task<ActionResult<JobApplicationResponse>> Create(CreateJobApplicationRequest request)
     {
         var application = new JobApplication
         {
