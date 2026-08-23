@@ -2,6 +2,7 @@
 using JobTracker.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using JobTracker.Api.Dtos;
 
 namespace JobTracker.Api.Controllers;
 
@@ -15,17 +16,34 @@ public class ApplicationsController : ControllerBase
     {
         _db = db;
     }
+    private static JobApplicationResponse ToResponse(JobApplication application)
+    {
+        return new JobApplicationResponse
+        {
+            Id = application.Id,
+            Company = application.Company,
+            Position = application.Position,
+            Status = application.Status,
+            Location = application.Location,
+            JobUrl = application.JobUrl,
+            CreatedAt = application.CreatedAt
+        };
+    }
 
     [HttpGet]
-    public async Task<ActionResult<List<JobApplication>>> GetAll()
+    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll()
     {
         var applications = await _db.Applications.ToListAsync();
 
-        return Ok(applications);
+        var response = applications
+            .Select(ToResponse)
+            .ToList();
+
+        return Ok(response);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<JobApplication>> GetById(int id)
+    public async Task<ActionResult<JobApplicationResponse>> GetById(int id)
     {
         var application = await _db.Applications.FindAsync(id);
 
@@ -34,25 +52,35 @@ public class ApplicationsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(application);
+        return Ok(ToResponse(application));
     }
 
     [HttpPost]
-    public async Task<ActionResult<JobApplication>> Create(
-        JobApplication application)
+    public async Task<ActionResult<JobApplicationResponse>> Create(
+        CreateJobApplicationRequest request)
     {
-        application.CreatedAt = DateTime.UtcNow;
+        var application = new JobApplication
+        {
+            Company = request.Company,
+            Position = request.Position,
+            Status = request.Status,
+            Location = request.Location,
+            JobUrl = request.JobUrl,
+            CreatedAt = DateTime.UtcNow
+        };
 
         _db.Applications.Add(application);
-
         await _db.SaveChangesAsync();
+
+        var response = ToResponse(application);
 
         return CreatedAtAction(
             nameof(GetById),
             new { id = application.Id },
-            application
+            response
         );
     }
+    
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -70,18 +98,18 @@ public class ApplicationsController : ControllerBase
     }
 
     [HttpPut]
-    public async Task<IActionResult> Update(int id, JobApplication updated)
+    public async Task<IActionResult> Update(int id,  UpdateJobApplicationRequest request)
     {
         var application = await _db.Applications.FindAsync(id);
         if (application is null)
         {
             return NotFound();
         }
-        application.Company = updated.Company;
-        application.Position = updated.Position;
-        application.Status = updated.Status;
-        application.Location = updated.Location;
-        application.JobUrl = updated.JobUrl;
+        application.Company = request.Company;
+        application.Position = request.Position;
+        application.Status = request.Status;
+        application.Location = request.Location;
+        application.JobUrl = request.JobUrl;
         
         await _db.SaveChangesAsync();
         return NoContent();
