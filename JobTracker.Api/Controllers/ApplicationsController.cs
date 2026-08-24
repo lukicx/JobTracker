@@ -113,7 +113,7 @@ public class ApplicationsController : ControllerBase
         return NoContent();
     }
 
-    [HttpPut]
+    [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id,  UpdateJobApplicationRequest request)
     {
         var application = await _db.Applications.FindAsync(id);

@@ -1,4 +1,5 @@
 using JobTracker.Api.Data;
+using JobTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")
     )
 );
+builder.Services.AddHttpClient<JoobleJobProvider>();
 
 var app = builder.Build();
 
@@ -30,3 +32,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+public partial class Program
+{
+}
