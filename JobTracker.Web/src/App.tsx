@@ -1,24 +1,25 @@
 import { useState } from 'react'
 
-function App() {
-    type ExternalJob = {
-        externalId: string
-        company: string
-        position: string
-        location?: string
-        url?: string
-        description?: string
-    }
+type ExternalJob = {
+    externalId: string
+    company: string
+    position: string
+    location?: string
+    url?: string
+    description?: string
+}
 
-    type JobApplication = {
-        id: number
-        company: string
-        position: string
-        status: string
-        location?: string
-        jobUrl?: string
-        createdAt: string
-    }
+type JobApplication = {
+    id: number
+    company: string
+    position: string
+    status: string
+    location?: string
+    jobUrl?: string
+    createdAt: string
+}
+
+function App() {
 
     const [jobs, setJobs] = useState<ExternalJob[]>([])
     const [myApplications, setMyApplications] = useState<JobApplication[]>([])
@@ -27,16 +28,30 @@ function App() {
     const [location, setLocation] = useState('')
 
     async function handleSearch() {
-        const params = new URLSearchParams({
-            search, location
-        })
-        const response = await fetch('http://localhost:5290/api/jobs?' + params)
-        const result: Array<ExternalJob> = await response.json()
-        setJobs(result)
-        
+        try {
+            const params = new URLSearchParams({
+                search,
+                location
+            })
+
+            const response = await fetch(
+                'http://localhost:5290/api/jobs?' + params
+            )
+
+            if (!response.ok) {
+                console.log('HTTP error:', response.status)
+                return
+            }
+
+            const result: ExternalJob[] = await response.json()
+            setJobs(result)
+        }
+        catch (error) {
+            console.log('Request failed:', error)
+        }
     }
-    
-    async function handleSave (job : ExternalJob){
+
+    async function handleSave(job: ExternalJob) {
         const request = {
             company: job.company,
             position: job.position,
@@ -44,25 +59,69 @@ function App() {
             jobUrl: job.url,
             status: 'Interested'
         }
-        console.log(request)
-        const result = await fetch('http://localhost:5290/api/applications', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(request)
-        })
-        if (result.ok) {
-            const body = await result.json()
-            console.log(body)
-        }
-        else {
-            const error = await result.text()
 
-            console.log('Status:', result.status)
-            console.log('Error:', error)
+        try {
+            const response = await fetch(
+                'http://localhost:5290/api/applications',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(request)
+                }
+            )
+
+            if (!response.ok) {
+                const error = await response.text()
+                console.log('Status:', response.status)
+                console.log('Error:', error)
+                return
+            }
+
+            const body: JobApplication = await response.json()
+
+            console.log('Saved:', body)
         }
-        
+        catch (error) {
+            console.error('Could not reach API:', error)
+        }
+    }
+    
+    async function showMyApplications(){
+        try {
+            const response = await fetch('http://localhost:5290/api/applications')
+            if (!response.ok) {
+                console.log('HTTP error:', response.status)
+                return
+            }
+            const result: JobApplication[] = await response.json()
+            setMyApplications(result)
+            
+        }
+        catch (error) {
+            console.error('Could not reach API:', error)
+        }
+    }
+    
+    async function handleRemove(id : number){
+        try {
+            const response = await fetch(`http://localhost:5290/api/applications/${id}`, 
+                {
+                    method: 'DELETE',
+                }
+            )
+            if (response.ok){
+                setMyApplications(myApplications.filter(application => application.id !== id))
+            }
+            else {
+                console.log('Status:', response.status)
+                console.log('Error:', await response.text())
+            }
+        }
+        catch (error) {
+                console.error('Could not reach API:', error)
+            }
     }
 
     return (
@@ -103,6 +162,26 @@ function App() {
                     </div>
                 ))}
             </div>
+            
+            <button onClick={showMyApplications}>
+                Show My Applications
+            </button>
+            <div>
+                {myApplications.map(application => (
+                    <div key={application.id}>
+                        <h2>{application.position}</h2>
+                        <p>{application.company}</p>
+                        <p>{application.location}</p>
+                        <a href={application.jobUrl}>Open</a>
+                        <button
+                            onClick={() => handleRemove(application.id)}
+                        >
+                            Remove
+                        </button>
+                    </div>
+                ))}
+            </div>
+            
         </main>
     )
 }
