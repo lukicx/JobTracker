@@ -132,5 +132,20 @@ public class ApplicationsController : ControllerBase
         
     }
 
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(int id, UpdateApplicationStatus request)
+    {
+        var application = await _db.Applications.FindAsync(id);
+        if (application is null)
+        {
+            return NotFound();
+        }
+        application.Status = request.Status;
+        
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+
    
 }

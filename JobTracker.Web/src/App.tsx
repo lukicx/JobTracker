@@ -123,7 +123,40 @@ function App() {
                 console.error('Could not reach API:', error)
             }
     }
-
+    async function changeStatus(id: number, status: string){
+        try {
+            const response = await fetch(`http://localhost:5290/api/applications/${id}/status`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(
+                        {
+                            status:status
+                        }
+                    )
+                }
+            )
+            if (response.ok) {
+                setMyApplications(current =>
+                    current.map(application =>
+                        application.id === id
+                            ? { ...application, status }
+                            : application
+                    )
+                )
+            }
+            else
+            {
+                console.log('Status:', response.status)
+                console.log('Error:', await response.text())
+            }
+        }
+        catch (error) {
+            console.error('Could not reach API:', error)
+        }
+    }
     return (
         <main>
             <h1>JobTracker</h1>
@@ -172,6 +205,16 @@ function App() {
                         <h2>{application.position}</h2>
                         <p>{application.company}</p>
                         <p>{application.location}</p>
+                        <label htmlFor="status">Status</label>
+                        <select id="status" name="status" value={application.status} onChange={(e) =>
+                            changeStatus(application.id, e.target.value)
+                        }>
+                            <option value="Interested">Interested</option>
+                            <option value="Applied">Applied</option>
+                            <option value="Interview">Interview</option>
+                            <option value="Offer">Offer</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
                         <a href={application.jobUrl}>Open</a>
                         <button
                             onClick={() => handleRemove(application.id)}
