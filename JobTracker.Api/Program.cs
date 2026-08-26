@@ -1,10 +1,18 @@
+using System.Text.Json.Serialization;
 using JobTracker.Api.Data;
 using JobTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter()
+        );
+    });
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -17,7 +25,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 );
 builder.Services.AddHttpClient<JoobleJobProvider>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
 {

@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using JobTracker.Api.Data;
 using JobTracker.Api.Dtos;
 using JobTracker.Api.Models;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JobTracker.Api.Tests;
@@ -13,6 +16,17 @@ public class ApplicationsApiTests
     private readonly HttpClient _client;
     private readonly CustomWebApplicationFactory _factory;
 
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+        options.Converters.Add(new JsonStringEnumConverter());
+
+        return options;
+    }
+    
     public ApplicationsApiTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
@@ -48,14 +62,15 @@ public class ApplicationsApiTests
 
         var response = await _client.PostAsJsonAsync(
             "/api/applications",
-            request
+            request,
+            JsonOptions
         );
 
         response.EnsureSuccessStatusCode();
 
         var application =
             await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>();
+                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
 
         return application
             ?? throw new InvalidOperationException(
@@ -66,11 +81,9 @@ public class ApplicationsApiTests
     [Fact]
     public async Task GetUnknownApplication_Returns404()
     {
-        // Act
         var response =
             await _client.GetAsync("/api/applications/999999");
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.NotFound,
             response.StatusCode
@@ -80,7 +93,6 @@ public class ApplicationsApiTests
     [Fact]
     public async Task CreateValidApplication_Returns201()
     {
-        // Arrange
         var request = new CreateJobApplicationRequest
         {
             Company = "NXP",
@@ -90,13 +102,12 @@ public class ApplicationsApiTests
             JobUrl = "https://example.com/nxp-job"
         };
 
-        // Act
         var response = await _client.PostAsJsonAsync(
             "/api/applications",
-            request
+            request,
+            JsonOptions
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.Created,
             response.StatusCode
@@ -104,7 +115,7 @@ public class ApplicationsApiTests
 
         var application =
             await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>();
+                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
 
         Assert.NotNull(application);
         Assert.True(application.Id > 0);
@@ -120,7 +131,6 @@ public class ApplicationsApiTests
     [Fact]
     public async Task CreateInvalidApplication_Returns400()
     {
-        // Arrange
         var request = new CreateJobApplicationRequest
         {
             Company = "",
@@ -129,13 +139,12 @@ public class ApplicationsApiTests
             JobUrl = "this-is-not-a-url"
         };
 
-        // Act
         var response = await _client.PostAsJsonAsync(
             "/api/applications",
-            request
+            request,
+            JsonOptions
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.BadRequest,
             response.StatusCode
@@ -145,15 +154,12 @@ public class ApplicationsApiTests
     [Fact]
     public async Task GetExistingApplication_Returns200()
     {
-        // Arrange
         var created = await CreateApplication();
 
-        // Act
         var response = await _client.GetAsync(
             $"/api/applications/{created.Id}"
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.OK,
             response.StatusCode
@@ -161,7 +167,7 @@ public class ApplicationsApiTests
 
         var application =
             await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>();
+                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
 
         Assert.NotNull(application);
         Assert.Equal(created.Id, application.Id);
@@ -172,7 +178,6 @@ public class ApplicationsApiTests
     [Fact]
     public async Task UpdateExistingApplication_Returns204()
     {
-        // Arrange
         var created = await CreateApplication();
 
         var update = new UpdateJobApplicationRequest
@@ -184,26 +189,29 @@ public class ApplicationsApiTests
             JobUrl = "https://example.com/job"
         };
 
-        // Act
         var response = await _client.PutAsJsonAsync(
             $"/api/applications/{created.Id}",
-            update
+            update,
+            JsonOptions
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.NoContent,
             response.StatusCode
         );
 
-        // Also verify the changes really persisted
         var getResponse = await _client.GetAsync(
             $"/api/applications/{created.Id}"
         );
 
+        Assert.Equal(
+            HttpStatusCode.OK,
+            getResponse.StatusCode
+        );
+
         var application =
             await getResponse.Content
-                .ReadFromJsonAsync<JobApplicationResponse>();
+                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
 
         Assert.NotNull(application);
 
@@ -221,21 +229,17 @@ public class ApplicationsApiTests
     [Fact]
     public async Task DeleteExistingApplication_Returns204()
     {
-        // Arrange
         var created = await CreateApplication();
 
-        // Act
         var response = await _client.DeleteAsync(
             $"/api/applications/{created.Id}"
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.NoContent,
             response.StatusCode
         );
 
-        // Make sure it's actually gone
         var getResponse = await _client.GetAsync(
             $"/api/applications/{created.Id}"
         );
@@ -249,7 +253,6 @@ public class ApplicationsApiTests
     [Fact]
     public async Task FilterByStatus_ReturnsCorrectApplications()
     {
-        // Arrange
         await CreateApplication(
             company: "Red Hat",
             status: ApplicationStatus.Interview
@@ -260,12 +263,10 @@ public class ApplicationsApiTests
             status: ApplicationStatus.Applied
         );
 
-        // Act
         var response = await _client.GetAsync(
             "/api/applications?status=Interview"
         );
 
-        // Assert
         Assert.Equal(
             HttpStatusCode.OK,
             response.StatusCode
@@ -273,7 +274,7 @@ public class ApplicationsApiTests
 
         var applications =
             await response.Content
-                .ReadFromJsonAsync<List<JobApplicationResponse>>();
+                .ReadFromJsonAsync<List<JobApplicationResponse>>(JsonOptions);
 
         Assert.NotNull(applications);
 
