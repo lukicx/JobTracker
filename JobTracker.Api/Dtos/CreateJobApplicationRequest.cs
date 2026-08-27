@@ -6,16 +6,16 @@ namespace JobTracker.Api.Dtos;
 public class CreateJobApplicationRequest
 {
     [Required]
-    [MaxLength(50)]
+    [MaxLength(200)]
     public string Company { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(50)]
+    [MaxLength(200)]
     public string Position { get; set; } = string.Empty;
 
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Interested;
 
-    [MaxLength(50)]
+    [MaxLength(200)]
     public string? Location { get; set; }
 
     [Url]

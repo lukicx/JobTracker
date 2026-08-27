@@ -28,8 +28,4 @@
     <ProjectReference Include="..\JobTracker.Api\JobTracker.Api.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="JobTracker.Api.Tests\" />
-  </ItemGroup>
-
 </Project>

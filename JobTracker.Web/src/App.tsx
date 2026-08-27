@@ -47,9 +47,7 @@ function App() {
                 location
             })
 
-            const response = await fetch(
-                'http://localhost:5290/api/jobs?' + params
-            )
+            const response = await fetch('/api/jobs?' + params)
 
             if (!response.ok) {
                 setError(`Could not load jobs. HTTP ${response.status}`)
@@ -82,7 +80,7 @@ function App() {
 
         try {
             const response = await fetch(
-                'http://localhost:5290/api/applications',
+                '/api/applications',
                 {
                     method: 'POST',
                     headers: {
@@ -114,7 +112,7 @@ function App() {
         setLoadingApplications(true)
 
         try {
-            const response = await fetch('http://localhost:5290/api/applications')
+            const response = await fetch('/api/applications')
 
             if (!response.ok) {
                 setError(`Could not load applications. HTTP ${response.status}`)
@@ -139,7 +137,7 @@ function App() {
 
         try {
             const response = await fetch(
-                `http://localhost:5290/api/applications/${id}`,
+                `/api/applications/${id}`,
                 {
                     method: 'DELETE'
                 }
@@ -166,7 +164,7 @@ function App() {
 
         try {
             const response = await fetch(
-                `http://localhost:5290/api/applications/${id}/status`,
+                `/api/applications/${id}/status`,
                 {
                     method: 'PATCH',
                     headers: {

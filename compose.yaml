@@ -1,0 +1,40 @@
+﻿services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: jobtracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d jobtracker" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  api:
+    build:
+      context: .
+      dockerfile: JobTracker.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=jobtracker;Username=postgres;Password=admin"
+      Jooble__ApiKey: ${JOOBLE_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build:
+      context: JobTracker.Web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+volumes:
+  postgres_data:
+
