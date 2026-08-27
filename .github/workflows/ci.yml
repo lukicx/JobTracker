@@ -1,0 +1,42 @@
+﻿name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore .NET dependencies
+        run: dotnet restore JobTracker.sln
+
+      - name: Build .NET
+        run: dotnet build JobTracker.sln --no-restore --configuration Release
+
+      - name: Test .NET
+        run: dotnet test JobTracker.sln --no-build --configuration Release
+        
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: JobTracker.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: JobTracker.Web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: JobTracker.Web
+        run: npm run build
