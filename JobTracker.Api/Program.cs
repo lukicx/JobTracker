@@ -38,6 +38,16 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
+}
+
 app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
