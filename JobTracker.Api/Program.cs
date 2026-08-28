@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using JobTracker.Api.Data;
+using JobTracker.Api.Models;
 using JobTracker.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +24,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")
     )
 );
+
+builder.Services
+    .AddIdentityApiEndpoints<User>()
+    .AddEntityFrameworkStores<AppDbContext>();
+
 builder.Services.AddHttpClient<JoobleJobProvider>();
 
 builder.Services.AddCors(options =>
