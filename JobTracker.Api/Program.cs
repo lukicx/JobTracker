@@ -68,6 +68,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapIdentityApi<User>();
+
 app.Run();
 public partial class Program
 {

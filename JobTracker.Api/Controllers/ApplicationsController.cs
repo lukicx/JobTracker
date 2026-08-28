@@ -3,8 +3,10 @@ using JobTracker.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using JobTracker.Api.Dtos;
-
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 namespace JobTracker.Api.Controllers;
+
 
 [ApiController]
 [Route("api/applications")]
@@ -29,11 +31,21 @@ public class ApplicationsController : ControllerBase
             CreatedAt = application.CreatedAt
         };
     }
-
+    
+    [Authorize]
     [HttpGet]
     public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(ApplicationStatus? status, string? search)
     {
-        var query = _db.Applications.AsQueryable();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+        
+        var query = _db.Applications
+            .Where(application => application.UserId == userId)
+            .AsQueryable();
 
         if (status.HasValue)
         {
@@ -58,7 +70,8 @@ public class ApplicationsController : ControllerBase
 
         return Ok(applications.Select(ToResponse).ToList());
     }
-
+    
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<JobApplicationResponse>> GetById(int id)
     {
@@ -71,10 +84,17 @@ public class ApplicationsController : ControllerBase
 
         return Ok(ToResponse(application));
     }
-
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<JobApplicationResponse>> Create(CreateJobApplicationRequest request)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+        
         var application = new JobApplication
         {
             Company = request.Company,
@@ -82,9 +102,11 @@ public class ApplicationsController : ControllerBase
             Status = request.Status,
             Location = request.Location,
             JobUrl = request.JobUrl,
-            CreatedAt = DateTime.UtcNow
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow,
         };
 
+        
         _db.Applications.Add(application);
         await _db.SaveChangesAsync();
 
@@ -147,5 +169,5 @@ public class ApplicationsController : ControllerBase
     }
 
 
-   
+    
 }
