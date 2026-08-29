@@ -90,7 +90,8 @@ function App() {
                 {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization' : `Bearer ${token}`
                     },
                     body: JSON.stringify(request)
                 }
@@ -155,7 +156,12 @@ function App() {
             const response = await fetch(
                 `/api/applications/${id}`,
                 {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers:
+                        {
+                            'Content-Type': 'application/json',
+                            'Authorization' : `Bearer ${token}`
+                        }
                 }
             )
 
@@ -184,7 +190,8 @@ function App() {
                 {
                     method: 'PATCH',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization' : `Bearer ${token}`
                     },
                     body: JSON.stringify({ status })
                 }
@@ -230,7 +237,7 @@ function App() {
                 {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ email, password: pwd })
                 })

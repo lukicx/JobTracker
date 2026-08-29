@@ -75,7 +75,17 @@ public class ApplicationsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<JobApplicationResponse>> GetById(int id)
     {
-        var application = await _db.Applications.FindAsync(id);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var application = await _db.Applications
+            .FirstOrDefaultAsync(a =>
+                a.Id == id &&
+                a.UserId == userId);
 
         if (application is null)
         {
@@ -119,10 +129,21 @@ public class ApplicationsController : ControllerBase
         );
     }
     
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var application = await _db.Applications.FindAsync(id);
+        
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+        
+        var application = await _db.Applications.FirstOrDefaultAsync(a =>
+            a.Id == id &&
+            a.UserId == userId);
 
         if (application is null)
         {
@@ -134,11 +155,22 @@ public class ApplicationsController : ControllerBase
 
         return NoContent();
     }
-
+    
+    [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id,  UpdateJobApplicationRequest request)
     {
-        var application = await _db.Applications.FindAsync(id);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+        
+        var application = await _db.Applications.FirstOrDefaultAsync(a =>
+            a.Id == id &&
+            a.UserId == userId);
+        
         if (application is null)
         {
             return NotFound();
@@ -153,11 +185,22 @@ public class ApplicationsController : ControllerBase
         return NoContent();
         
     }
-
+    
+    [Authorize]
     [HttpPatch("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, UpdateApplicationStatus request)
     {
-        var application = await _db.Applications.FindAsync(id);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+        
+        var application = await _db.Applications.FirstOrDefaultAsync(a =>
+            a.Id == id &&
+            a.UserId == userId);
+        
         if (application is null)
         {
             return NotFound();
