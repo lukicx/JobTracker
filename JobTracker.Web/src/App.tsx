@@ -21,7 +21,13 @@ type JobApplication = {
     createdAt: string
 }
 
+
 function App() {
+    const [email, setEmail] = useState('')
+    const [pwd, setPwd] = useState('')
+    const [token, setToken] = useState<string | null>(null)
+    const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+    
     const [jobs, setJobs] = useState<ExternalJob[]>([])
     const [myApplications, setMyApplications] = useState<JobApplication[]>([])
 
@@ -112,7 +118,17 @@ function App() {
         setLoadingApplications(true)
 
         try {
-            const response = await fetch('/api/applications')
+            const response = await fetch('/api/applications',
+                {
+                    
+                method: 'GET',
+                headers:
+                    {
+                        'Content-Type': 'application/json',
+                        'Authorization' : `Bearer ${token}`
+                    }
+                }
+            )
 
             if (!response.ok) {
                 setError(`Could not load applications. HTTP ${response.status}`)
@@ -204,6 +220,112 @@ function App() {
         setError(null)
         setMessage(null)
         setView('search')
+    }
+    
+    async function handleLogin(){
+        setError(null)
+        setMessage(null)
+        try {
+            const response = await fetch('/api/login',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password: pwd })
+                })
+            if (!response.ok){
+                setError(`Could not login. HTTP ${response.status}`)
+                return
+            }
+            const result = await response.json()
+            setToken(result.accessToken)
+            setMessage("Logged in succesfuly.")
+        }
+        catch (error){
+            console.error('Could not reach API:', error)
+            setError('Could not reach the API.')
+        }
+        
+    }
+    async function handleRegister(){
+        setError(null)
+        setMessage(null)
+        try {
+            const response = await fetch('/api/register',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password: pwd })
+                })
+            if (!response.ok){
+                setError(`Could not register. HTTP ${response.status}`)
+                return
+            }
+            const result = await response.json()
+            setToken(result.accessToken)
+            setMessage("Registered succesfuly.")
+        }
+        catch (error){
+            console.error('Could not reach API:', error)
+            setError('Could not reach the API.')
+        }
+        
+    }
+
+    if (!token) {
+        return (
+            <main>
+                <h1>JobTracker</h1>
+
+                <div className="auth-card">
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={event => setEmail(event.target.value)}
+                    />
+
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={pwd}
+                        onChange={event => setPwd(event.target.value)}
+                    />
+                    <div className="auth-actions">
+                        {authMode === 'login' && (
+                            <div>
+                                <button onClick={handleLogin}>
+                                    Login
+                                </button>
+                                <button
+                                    className="link-button"
+                                    onClick={() => setAuthMode('register')}
+                                >
+                                    Create account
+                                </button>
+                            </div>
+                            )}
+                        {authMode === 'register' && (
+                            <div>
+                                <button onClick={handleRegister}>
+                                Register
+                                </button>
+
+                                <button
+                                    className="link-button"
+                                    onClick={() => setAuthMode('login')}
+                                >
+                                    Back to login
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+        )
     }
 
     return (
