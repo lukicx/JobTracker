@@ -21,6 +21,33 @@ type JobApplication = {
     createdAt: string
 }
 
+async function getAuthError(response: Response, fallback: string): Promise<string> {
+    const problem: {
+        detail?: string
+        errors?: Record<string, string[]>
+    } | null = await response.json().catch(() => null)
+
+    const validationErrors = Object.values(problem?.errors ?? {}).flat()
+    if (validationErrors.length > 0) {
+        return validationErrors.join(' ')
+    }
+
+    if (response.status === 401) {
+        switch (problem?.detail) {
+            case 'LockedOut':
+                return 'Your account is temporarily locked. Please try again later.'
+            case 'RequiresTwoFactor':
+                return 'This account requires a two-factor authentication code.'
+            case 'NotAllowed':
+                return 'Login is not allowed for this account. Check whether email confirmation is required.'
+            default:
+                return 'Login failed. Check your email and password, and make sure you have registered an account.'
+        }
+    }
+
+    return fallback
+}
+
 
 function App() {
     const [email, setEmail] = useState('')
@@ -239,15 +266,15 @@ function App() {
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ email, password: pwd })
+                    body: JSON.stringify({ email: email.trim(), password: pwd })
                 })
             if (!response.ok){
-                setError(`Could not login. HTTP ${response.status}`)
+                setError(await getAuthError(response, `Could not log in. HTTP ${response.status}`))
                 return
             }
             const result = await response.json()
             setToken(result.accessToken)
-            setMessage("Logged in succesfuly.")
+            setMessage('Logged in successfully.')
         }
         catch (error){
             console.error('Could not reach API:', error)
@@ -265,15 +292,14 @@ function App() {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email, password: pwd })
+                    body: JSON.stringify({ email: email.trim(), password: pwd })
                 })
             if (!response.ok){
-                setError(`Could not register. HTTP ${response.status}`)
+                setError(await getAuthError(response, `Could not register. HTTP ${response.status}`))
                 return
             }
-            const result = await response.json()
-            setToken(result.accessToken)
-            setMessage("Registered succesfuly.")
+            setAuthMode('login')
+            setMessage('Account created successfully. Log in with your email and password.')
         }
         catch (error){
             console.error('Could not reach API:', error)
@@ -286,6 +312,9 @@ function App() {
         return (
             <main>
                 <h1>JobTracker</h1>
+
+                {error && <p role="alert">{error}</p>}
+                {message && <p role="status">{message}</p>}
 
                 <div className="auth-card">
                     <input
