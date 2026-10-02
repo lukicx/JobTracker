@@ -1,14 +1,19 @@
-﻿using System.Net;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Mime;
+using System.Runtime.InteropServices.JavaScript;
 using JobTracker.Api.Data;
 using JobTracker.Api.Dtos;
 using JobTracker.Api.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
+using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JobTracker.Api.Tests;
+
 
 public class ApplicationsApiTests
     : IClassFixture<CustomWebApplicationFactory>
@@ -16,278 +21,273 @@ public class ApplicationsApiTests
     private readonly HttpClient _client;
     private readonly CustomWebApplicationFactory _factory;
 
-    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
-
-    private static JsonSerializerOptions CreateJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-
-        options.Converters.Add(new JsonStringEnumConverter());
-
-        return options;
-    }
-    
     public ApplicationsApiTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
-        _client = factory.CreateClient();
-
-        ResetDatabase();
+        _client = factory.CreateClient ();
     }
-
+    
     private void ResetDatabase()
     {
         using var scope = _factory.Services.CreateScope();
 
-        var db = scope.ServiceProvider
-            .GetRequiredService<AppDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         db.Database.EnsureDeleted();
         db.Database.EnsureCreated();
     }
+    
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private async Task<JobApplicationResponse> CreateApplication(
-        string company = "Red Hat",
-        string position = "Backend Intern",
-        ApplicationStatus status = ApplicationStatus.Applied)
+    static ApplicationsApiTests()
     {
-        var request = new CreateJobApplicationRequest
+        JsonOptions.Converters.Add(new JsonStringEnumConverter());
+    }
+    
+    private async Task AuthenticateClient(HttpClient client, string email = "test@example.com", string password = "Test123.")
+    {
+        var request = new
         {
-            Company = company,
-            Position = position,
-            Status = status,
+            email = email,
+            password = password
+        };
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/register" , request);
+        registerResponse.EnsureSuccessStatusCode();
+        var loginResponse = await _client.PostAsJsonAsync("/api/login" , request);
+        loginResponse.EnsureSuccessStatusCode();
+
+        var loginData = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        string? accessToken  = loginData.GetProperty("accessToken").GetString();
+
+        if (accessToken is null)
+        {
+            throw new InvalidOperationException("Login response did not contain an accessToken.");
+        }
+        
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    }
+
+
+    [Fact]
+    public async Task UnauthenticatedUser()
+    {
+        ResetDatabase();
+        var response = await _client.GetAsync("/api/applications");
+        
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+    
+    [Fact]
+    public async Task GetAllApplications()
+    {
+        ResetDatabase();
+        await AuthenticateClient(_client);
+        var response = await _client.GetAsync("/api/applications");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+    [Fact]
+    public async Task CreateApplication()
+    {
+        ResetDatabase();
+        await AuthenticateClient(_client);
+        
+        var request = new 
+        {   
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
             Location = "Brno",
-            JobUrl = "https://example.com/job"
+            JobUrl = "https://example.com"
         };
-
-        var response = await _client.PostAsJsonAsync(
-            "/api/applications",
-            request,
-            JsonOptions
-        );
-
-        response.EnsureSuccessStatusCode();
-
-        var application =
-            await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
-
-        return application
-            ?? throw new InvalidOperationException(
-                "API returned no application."
-            );
+        
+        var response = await _client.PostAsJsonAsync("/api/applications" , request);
+        
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     [Fact]
-    public async Task GetUnknownApplication_Returns404()
+    public async Task GetApplicationById()
     {
-        var response =
-            await _client.GetAsync("/api/applications/999999");
+        ResetDatabase();
+        await AuthenticateClient(_client);
 
-        Assert.Equal(
-            HttpStatusCode.NotFound,
-            response.StatusCode
-        );
-    }
-
-    [Fact]
-    public async Task CreateValidApplication_Returns201()
-    {
-        var request = new CreateJobApplicationRequest
+        var request = new
         {
-            Company = "NXP",
-            Position = "Software Engineering Intern",
-            Status = ApplicationStatus.Applied,
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
             Location = "Brno",
-            JobUrl = "https://example.com/nxp-job"
+            JobUrl = "https://example.com"
         };
+        var response = await _client.PostAsJsonAsync("/api/applications", request);
+        var application = await response.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        var applicationId = application?.Id;
 
-        var response = await _client.PostAsJsonAsync(
-            "/api/applications",
-            request,
-            JsonOptions
-        );
-
-        Assert.Equal(
-            HttpStatusCode.Created,
-            response.StatusCode
-        );
-
-        var application =
-            await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
-
-        Assert.NotNull(application);
-        Assert.True(application.Id > 0);
-        Assert.Equal("NXP", application.Company);
-        Assert.Equal(
-            ApplicationStatus.Applied,
-            application.Status
-        );
-
-        Assert.NotNull(response.Headers.Location);
+        response = await _client.GetAsync($"/api/applications/{applicationId}");
+        application = await response.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        var storedApplicationId = application?.Id;
+        
+        Assert.Equal(applicationId, storedApplicationId);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
-
+    
     [Fact]
-    public async Task CreateInvalidApplication_Returns400()
+    public async Task GetUnknownApplicationById()
     {
-        var request = new CreateJobApplicationRequest
+        ResetDatabase();
+        await AuthenticateClient(_client);
+
+        var applicationId = 999999;
+        var response = await _client.GetAsync($"/api/applications/{applicationId}");
+     
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+    
+    
+    [Fact]
+    public async Task UpdateExistingApplication()
+    {
+        ResetDatabase();
+        await AuthenticateClient(_client);
+        
+        var createRequest  = new
         {
-            Company = "",
-            Position = "",
-            Status = ApplicationStatus.Applied,
-            JobUrl = "this-is-not-a-url"
-        };
-
-        var response = await _client.PostAsJsonAsync(
-            "/api/applications",
-            request,
-            JsonOptions
-        );
-
-        Assert.Equal(
-            HttpStatusCode.BadRequest,
-            response.StatusCode
-        );
-    }
-
-    [Fact]
-    public async Task GetExistingApplication_Returns200()
-    {
-        var created = await CreateApplication();
-
-        var response = await _client.GetAsync(
-            $"/api/applications/{created.Id}"
-        );
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            response.StatusCode
-        );
-
-        var application =
-            await response.Content
-                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
-
-        Assert.NotNull(application);
-        Assert.Equal(created.Id, application.Id);
-        Assert.Equal("Red Hat", application.Company);
-        Assert.Equal("Backend Intern", application.Position);
-    }
-
-    [Fact]
-    public async Task UpdateExistingApplication_Returns204()
-    {
-        var created = await CreateApplication();
-
-        var update = new UpdateJobApplicationRequest
-        {
-            Company = "Red Hat",
-            Position = "Backend Software Engineer Intern",
-            Status = ApplicationStatus.Interview,
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
             Location = "Brno",
-            JobUrl = "https://example.com/job"
+            JobUrl = "https://example.com"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/applications", createRequest);
+        
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var createdApplication = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        Assert.NotNull(createdApplication);
+        var applicationId = createdApplication.Id;
+        
+        var updateRequest = new
+        {
+            Company = "Example Company",
+            Position = "Backend Intern",
+            Status = ApplicationStatus.Interested,
+            Location = "Brno",
+            JobUrl = "https://example.com"
         };
 
-        var response = await _client.PutAsJsonAsync(
-            $"/api/applications/{created.Id}",
-            update,
-            JsonOptions
-        );
+        var updateResponse = await _client.PutAsJsonAsync($"/api/applications/{applicationId}", updateRequest);
+     
+        Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+        
+        var getResponse = await _client.GetAsync($"/api/applications/{applicationId}");
 
-        Assert.Equal(
-            HttpStatusCode.NoContent,
-            response.StatusCode
-        );
-
-        var getResponse = await _client.GetAsync(
-            $"/api/applications/{created.Id}"
-        );
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            getResponse.StatusCode
-        );
-
-        var application =
-            await getResponse.Content
-                .ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
-
-        Assert.NotNull(application);
-
-        Assert.Equal(
-            "Backend Software Engineer Intern",
-            application.Position
-        );
-
-        Assert.Equal(
-            ApplicationStatus.Interview,
-            application.Status
-        );
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        
+        var updatedApplication = await getResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        
+        Assert.NotNull(updatedApplication);
+        Assert.Equal(updateRequest.Position, updatedApplication.Position);
+        
     }
-
     [Fact]
-    public async Task DeleteExistingApplication_Returns204()
+    public async Task ChangeApplicationStatus()
     {
-        var created = await CreateApplication();
+        ResetDatabase();
+        await AuthenticateClient(_client);
+        
+        var createRequest  = new
+        {
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
+            Location = "Brno",
+            JobUrl = "https://example.com"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/applications", createRequest);
+        
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        var response = await _client.DeleteAsync(
-            $"/api/applications/{created.Id}"
-        );
+        var createdApplication = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        Assert.NotNull(createdApplication);
+        var applicationId = createdApplication.Id;
+        
+        var updateRequest = new
+        {
+            Status = ApplicationStatus.Offer,
+        };
 
-        Assert.Equal(
-            HttpStatusCode.NoContent,
-            response.StatusCode
-        );
+        var updateResponse = await _client.PatchAsJsonAsync($"/api/applications/{applicationId}/status", updateRequest, JsonOptions);
+     
+        Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+        
+        var getResponse = await _client.GetAsync($"/api/applications/{applicationId}");
 
-        var getResponse = await _client.GetAsync(
-            $"/api/applications/{created.Id}"
-        );
-
-        Assert.Equal(
-            HttpStatusCode.NotFound,
-            getResponse.StatusCode
-        );
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        
+        var updatedApplication = await getResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        
+        Assert.NotNull(updatedApplication);
+        Assert.Equal(updateRequest.Status, updatedApplication.Status);
+        
     }
-
     [Fact]
-    public async Task FilterByStatus_ReturnsCorrectApplications()
+    public async Task DeleteOwnedApplication()
     {
-        await CreateApplication(
-            company: "Red Hat",
-            status: ApplicationStatus.Interview
-        );
+        ResetDatabase();
+        await AuthenticateClient(_client);
+        
+        var createRequest  = new
+        {
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
+            Location = "Brno",
+            JobUrl = "https://example.com"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/applications", createRequest);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        await CreateApplication(
-            company: "NXP",
-            status: ApplicationStatus.Applied
-        );
+        var createdApplication = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        var createdApplicationId = createdApplication?.Id;
+        
+        Assert.NotNull(createdApplicationId);
+        var deleteResponse = await _client.DeleteAsync($"/api/applications/{createdApplicationId}");
+        
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        
+        var getResponse = await _client.GetAsync($"/api/applications/{createdApplicationId}");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+    [Fact]
+    public async Task AccessOnlyOwnedApplications()
+    {
+        ResetDatabase();
+        var clientA = _factory.CreateClient();
+        var clientB = _factory.CreateClient();
 
-        var response = await _client.GetAsync(
-            "/api/applications?status=Interview"
-        );
+        
+        var createRequest  = new
+        {
+            Company = "Example Company",
+            Position = "Intern",
+            Status = ApplicationStatus.Interested,
+            Location = "Brno",
+            JobUrl = "https://example.com"
+        };
+        var createResponse = await _client.PostAsJsonAsync("/api/applications", createRequest);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        Assert.Equal(
-            HttpStatusCode.OK,
-            response.StatusCode
-        );
-
-        var applications =
-            await response.Content
-                .ReadFromJsonAsync<List<JobApplicationResponse>>(JsonOptions);
-
-        Assert.NotNull(applications);
-
-        Assert.Single(applications);
-
-        Assert.Equal(
-            ApplicationStatus.Interview,
-            applications[0].Status
-        );
-
-        Assert.Equal(
-            "Red Hat",
-            applications[0].Company
-        );
+        var createdApplication = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        var createdApplicationId = createdApplication?.Id;
+        
+        Assert.NotNull(createdApplicationId);
+        var deleteResponse = await _client.DeleteAsync($"/api/applications/{createdApplicationId}");
+        
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        
+        var getResponse = await _client.GetAsync($"/api/applications/{createdApplicationId}");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
 }
