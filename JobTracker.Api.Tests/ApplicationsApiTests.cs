@@ -52,9 +52,9 @@ public class ApplicationsApiTests
             password = password
         };
 
-        var registerResponse = await _client.PostAsJsonAsync("/api/register" , request);
+        var registerResponse = await client.PostAsJsonAsync("/api/register" , request);
         registerResponse.EnsureSuccessStatusCode();
-        var loginResponse = await _client.PostAsJsonAsync("/api/login" , request);
+        var loginResponse = await client.PostAsJsonAsync("/api/login" , request);
         loginResponse.EnsureSuccessStatusCode();
 
         var loginData = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
@@ -66,7 +66,7 @@ public class ApplicationsApiTests
             throw new InvalidOperationException("Login response did not contain an accessToken.");
         }
         
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
     }
 
 
@@ -264,8 +264,10 @@ public class ApplicationsApiTests
     public async Task AccessOnlyOwnedApplications()
     {
         ResetDatabase();
-        var clientA = _factory.CreateClient();
-        var clientB = _factory.CreateClient();
+        using var clientA = _factory.CreateClient();
+        using var clientB = _factory.CreateClient();
+        await AuthenticateClient(clientA, "owner@example.com");
+        await AuthenticateClient(clientB, "other@example.com");
 
         
         var createRequest  = new
@@ -276,18 +278,58 @@ public class ApplicationsApiTests
             Location = "Brno",
             JobUrl = "https://example.com"
         };
-        var createResponse = await _client.PostAsJsonAsync("/api/applications", createRequest);
+        var createResponse = await clientA.PostAsJsonAsync("/api/applications", createRequest);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         var createdApplication = await createResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
-        var createdApplicationId = createdApplication?.Id;
-        
-        Assert.NotNull(createdApplicationId);
-        var deleteResponse = await _client.DeleteAsync($"/api/applications/{createdApplicationId}");
-        
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
-        
-        var getResponse = await _client.GetAsync($"/api/applications/{createdApplicationId}");
-        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+        Assert.NotNull(createdApplication);
+        var applicationUrl = $"/api/applications/{createdApplication.Id}";
+
+        var ownerListResponse = await clientA.GetAsync("/api/applications");
+        Assert.Equal(HttpStatusCode.OK, ownerListResponse.StatusCode);
+        var ownerApplications = await ownerListResponse.Content.ReadFromJsonAsync<List<JobApplicationResponse>>(JsonOptions);
+        Assert.NotNull(ownerApplications);
+        Assert.Equal(createdApplication.Id, Assert.Single(ownerApplications).Id);
+
+        var otherListResponse = await clientB.GetAsync("/api/applications");
+        Assert.Equal(HttpStatusCode.OK, otherListResponse.StatusCode);
+        var otherApplications = await otherListResponse.Content.ReadFromJsonAsync<List<JobApplicationResponse>>(JsonOptions);
+        Assert.NotNull(otherApplications);
+        Assert.Empty(otherApplications);
+
+        var otherGetResponse = await clientB.GetAsync(applicationUrl);
+        Assert.Equal(HttpStatusCode.NotFound, otherGetResponse.StatusCode);
+
+        var otherUpdateResponse = await clientB.PutAsJsonAsync(applicationUrl, new
+        {
+            Company = "Changed Company",
+            Position = "Changed Position",
+            Status = ApplicationStatus.Offer,
+            Location = "Changed Location",
+            JobUrl = "https://example.com/changed"
+        }, JsonOptions);
+        Assert.Equal(HttpStatusCode.NotFound, otherUpdateResponse.StatusCode);
+
+        var otherStatusResponse = await clientB.PatchAsJsonAsync($"{applicationUrl}/status", new
+        {
+            Status = ApplicationStatus.Rejected
+        }, JsonOptions);
+        Assert.Equal(HttpStatusCode.NotFound, otherStatusResponse.StatusCode);
+
+        var otherDeleteResponse = await clientB.DeleteAsync(applicationUrl);
+        Assert.Equal(HttpStatusCode.NotFound, otherDeleteResponse.StatusCode);
+
+        var ownerGetResponse = await clientA.GetAsync(applicationUrl);
+        Assert.Equal(HttpStatusCode.OK, ownerGetResponse.StatusCode);
+        var storedApplication = await ownerGetResponse.Content.ReadFromJsonAsync<JobApplicationResponse>(JsonOptions);
+        Assert.NotNull(storedApplication);
+        Assert.Equal(createRequest.Company, storedApplication.Company);
+        Assert.Equal(createRequest.Position, storedApplication.Position);
+        Assert.Equal(createRequest.Status, storedApplication.Status);
+        Assert.Equal(createRequest.Location, storedApplication.Location);
+        Assert.Equal(createRequest.JobUrl, storedApplication.JobUrl);
+
+        var ownerDeleteResponse = await clientA.DeleteAsync(applicationUrl);
+        Assert.Equal(HttpStatusCode.NoContent, ownerDeleteResponse.StatusCode);
     }
 }
