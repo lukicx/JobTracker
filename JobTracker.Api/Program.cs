@@ -1,7 +1,8 @@
 using System.Text.Json.Serialization;
-using JobTracker.Api.Data;
-using JobTracker.Api.Models;
-using JobTracker.Api.Services;
+using JobTracker.BL.Services;
+using JobTracker.DAL.Data;
+using JobTracker.DAL.Models;
+using JobTracker.DAL.Providers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,7 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>();
 
 builder.Services.AddHttpClient<JoobleJobProvider>();
+builder.Services.AddScoped<JobApplicationService>();
 
 builder.Services.AddCors(options =>
 {

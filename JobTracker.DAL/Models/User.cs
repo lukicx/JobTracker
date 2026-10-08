@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 
-namespace JobTracker.Api.Models;
+namespace JobTracker.DAL.Models;
 
 public class User : IdentityUser
 {

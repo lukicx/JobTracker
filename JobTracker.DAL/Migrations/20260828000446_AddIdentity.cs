@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace JobTracker.Api.Migrations
+namespace JobTracker.DAL.Migrations
 {
     /// <inheritdoc />
     public partial class AddIdentity : Migration

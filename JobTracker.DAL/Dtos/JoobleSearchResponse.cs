@@ -1,4 +1,4 @@
-﻿namespace JobTracker.Api.Dtos;
+﻿namespace JobTracker.DAL.Dtos;
 
 public class JoobleSearchResponse
 {

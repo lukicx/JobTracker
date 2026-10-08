@@ -1,7 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-using JobTracker.Api.Models;
+using System.ComponentModel.DataAnnotations;
+using JobTracker.DAL.Models;
 
-namespace JobTracker.Api.Dtos;
+namespace JobTracker.BL.Dtos;
 
 public class UpdateJobApplicationRequest
 {

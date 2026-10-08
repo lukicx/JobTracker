@@ -1,8 +1,8 @@
-﻿using JobTracker.Api.Models;
+using JobTracker.DAL.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
-namespace JobTracker.Api.Data;
+namespace JobTracker.DAL.Data;
 
 public class AppDbContext : IdentityDbContext<User>
 {

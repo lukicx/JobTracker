@@ -1,6 +1,6 @@
-﻿using JobTracker.Api.Models;
+using JobTracker.DAL.Models;
 
-namespace JobTracker.Api.Dtos;
+namespace JobTracker.BL.Dtos;
 
 public class UpdateApplicationStatus
 {

@@ -1,8 +1,9 @@
 ﻿using System.Net.Http.Json;
-using JobTracker.Api.Dtos;
-using JobTracker.Api.Models;
+using Microsoft.Extensions.Configuration;
+using JobTracker.DAL.Dtos;
+using JobTracker.DAL.Models;
 
-namespace JobTracker.Api.Services;
+namespace JobTracker.DAL.Providers;
 
 public class JoobleJobProvider
 {

@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace JobTracker.Api.Migrations
+namespace JobTracker.DAL.Migrations
 {
     /// <inheritdoc />
     public partial class UseApplicationStatusEnum : Migration

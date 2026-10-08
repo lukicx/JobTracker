@@ -1,4 +1,4 @@
-﻿namespace JobTracker.Api.Models;
+namespace JobTracker.DAL.Models;
 
 public class ExternalJob
 {

@@ -1,12 +1,12 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Runtime.InteropServices.JavaScript;
-using JobTracker.Api.Data;
-using JobTracker.Api.Dtos;
-using JobTracker.Api.Models;
+using JobTracker.DAL.Data;
+using JobTracker.BL.Dtos;
+using JobTracker.DAL.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.BearerToken;

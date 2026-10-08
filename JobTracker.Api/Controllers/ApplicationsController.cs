@@ -1,216 +1,111 @@
-﻿using JobTracker.Api.Data;
-using JobTracker.Api.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using JobTracker.Api.Dtos;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-namespace JobTracker.Api.Controllers;
+using JobTracker.BL.Dtos;
+using JobTracker.BL.Services;
+using JobTracker.DAL.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
+namespace JobTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/applications")]
 public class ApplicationsController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly JobApplicationService _applicationService;
 
-    public ApplicationsController(AppDbContext db)
+    public ApplicationsController(JobApplicationService applicationService)
     {
-        _db = db;
+        _applicationService = applicationService;
     }
-    private static JobApplicationResponse ToResponse(JobApplication application)
-    {
-        return new JobApplicationResponse
-        {
-            Id = application.Id,
-            Company = application.Company,
-            Position = application.Position,
-            Status = application.Status,
-            Location = application.Location,
-            JobUrl = application.JobUrl,
-            CreatedAt = application.CreatedAt
-        };
-    }
-    
+
     [Authorize]
     [HttpGet]
-    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(ApplicationStatus? status, string? search)
+    public async Task<ActionResult<List<JobApplicationResponse>>> GetAll(
+        ApplicationStatus? status,
+        string? search)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
         if (userId is null)
         {
             return Unauthorized();
         }
-        
-        var query = _db.Applications
-            .Where(application => application.UserId == userId)
-            .AsQueryable();
 
-        if (status.HasValue)
-        {
-            query = query.Where(application =>
-                application.Status == status.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = $"%{search.Trim()}%";
-
-            query = query.Where(application =>
-                EF.Functions.ILike(application.Company, pattern) ||
-                EF.Functions.ILike(application.Position, pattern) ||
-                (application.Location != null &&
-                 EF.Functions.ILike(application.Location, pattern)));
-        }
-
-        var applications = await query
-            .OrderByDescending(application => application.CreatedAt)
-            .ToListAsync();
-
-        return Ok(applications.Select(ToResponse).ToList());
+        var applications = await _applicationService.GetAllAsync(userId, status, search);
+        return Ok(applications);
     }
-    
+
     [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<JobApplicationResponse>> GetById(int id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
         if (userId is null)
         {
             return Unauthorized();
         }
 
-        var application = await _db.Applications
-            .FirstOrDefaultAsync(a =>
-                a.Id == id &&
-                a.UserId == userId);
-
-        if (application is null)
-        {
-            return NotFound();
-        }
-
-        return Ok(ToResponse(application));
+        var application = await _applicationService.GetByIdAsync(id, userId);
+        return application is null ? NotFound() : Ok(application);
     }
+
     [Authorize]
     [HttpPost]
-    public async Task<ActionResult<JobApplicationResponse>> Create(CreateJobApplicationRequest request)
+    public async Task<ActionResult<JobApplicationResponse>> Create(
+        CreateJobApplicationRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        
         if (userId is null)
         {
             return Unauthorized();
         }
-        
-        var application = new JobApplication
-        {
-            Company = request.Company,
-            Position = request.Position,
-            Status = request.Status,
-            Location = request.Location,
-            JobUrl = request.JobUrl,
-            UserId = userId,
-            CreatedAt = DateTime.UtcNow,
-        };
 
-        
-        _db.Applications.Add(application);
-        await _db.SaveChangesAsync();
-
-        var response = ToResponse(application);
-
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = application.Id },
-            response
-        );
+        var application = await _applicationService.CreateAsync(userId, request);
+        return CreatedAtAction(nameof(GetById), new { id = application.Id }, application);
     }
-    
+
+    [Authorize]
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(
+        int id,
+        UpdateJobApplicationRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await _applicationService.UpdateAsync(id, userId, request);
+        return updated ? NoContent() : NotFound();
+    }
+
+    [Authorize]
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(
+        int id,
+        UpdateApplicationStatus request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var updated = await _applicationService.UpdateStatusAsync(id, userId, request);
+        return updated ? NoContent() : NotFound();
+    }
+
     [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        
         if (userId is null)
         {
             return Unauthorized();
         }
-        
-        var application = await _db.Applications.FirstOrDefaultAsync(a =>
-            a.Id == id &&
-            a.UserId == userId);
 
-        if (application is null)
-        {
-            return NotFound();
-        }
-
-        _db.Applications.Remove(application);
-        await _db.SaveChangesAsync();
-
-        return NoContent();
+        var deleted = await _applicationService.DeleteAsync(id, userId);
+        return deleted ? NoContent() : NotFound();
     }
-    
-    [Authorize]
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id,  UpdateJobApplicationRequest request)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        
-        if (userId is null)
-        {
-            return Unauthorized();
-        }
-        
-        var application = await _db.Applications.FirstOrDefaultAsync(a =>
-            a.Id == id &&
-            a.UserId == userId);
-        
-        if (application is null)
-        {
-            return NotFound();
-        }
-        application.Company = request.Company;
-        application.Position = request.Position;
-        application.Status = request.Status;
-        application.Location = request.Location;
-        application.JobUrl = request.JobUrl;
-        
-        await _db.SaveChangesAsync();
-        return NoContent();
-        
-    }
-    
-    [Authorize]
-    [HttpPatch("{id}/status")]
-    public async Task<IActionResult> UpdateStatus(int id, UpdateApplicationStatus request)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        
-        if (userId is null)
-        {
-            return Unauthorized();
-        }
-        
-        var application = await _db.Applications.FirstOrDefaultAsync(a =>
-            a.Id == id &&
-            a.UserId == userId);
-        
-        if (application is null)
-        {
-            return NotFound();
-        }
-        application.Status = request.Status;
-        
-        await _db.SaveChangesAsync();
-        return NoContent();
-    }
-
-
-    
 }

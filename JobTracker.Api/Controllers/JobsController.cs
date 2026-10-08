@@ -1,5 +1,5 @@
-﻿using JobTracker.Api.Models;
-using JobTracker.Api.Services;
+﻿using JobTracker.DAL.Models;
+using JobTracker.DAL.Providers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JobTracker.Api.Controllers;

@@ -1,6 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-namespace JobTracker.Api.Models;
+namespace JobTracker.DAL.Models;
 
 public class JobApplication
 {
