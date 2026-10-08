@@ -310,193 +310,189 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
 
     if (!token) {
         return (
-            <main>
-                <h1>JobTracker</h1>
-
-                {error && <p role="alert">{error}</p>}
-                {message && <p role="status">{message}</p>}
-
-                <div className="auth-card">
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={email}
-                        onChange={event => setEmail(event.target.value)}
-                    />
-
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={pwd}
-                        onChange={event => setPwd(event.target.value)}
-                    />
-                    <div className="auth-actions">
+            <main className="app-shell auth-shell">
+                <header className="app-header">
+                    <div className="brand">
+                        <span className="brand-mark" aria-hidden="true">JT</span>
+                        <span>JobTracker</span>
+                    </div>
+                </header>
+                <div className="auth-layout">
+                    <section className="auth-intro">
+                        <p className="eyebrow">One place for your job search</p>
+                        <h1>Your next move,<br /><span>organized.</span></h1>
+                        <p className="intro-description">
+                            Find opportunities, save the roles you like, and keep
+                            track of every application.
+                        </p>
+                        <div className="intro-note">From the first interesting role to your next offer.</div>
+                    </section>
+                    <section className="auth-card" aria-labelledby="auth-title">
+                        <h2 id="auth-title">{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
+                        <p className="muted auth-description">
+                            {authMode === 'login'
+                                ? 'Log in to continue your job search.'
+                                : 'Start keeping your applications in one place.'}
+                        </p>
+                        {error && <p className="notice notice-error" role="alert">{error}</p>}
+                        {message && <p className="notice notice-success" role="status">{message}</p>}
+                        <div className="field">
+                            <label htmlFor="email">Email address</label>
+                            <input
+                                id="email"
+                                type="email"
+                                placeholder="you@example.com"
+                                autoComplete="email"
+                                value={email}
+                                onChange={event => setEmail(event.target.value)}
+                            />
+                        </div>
+                        <div className="field">
+                            <label htmlFor="password">Password</label>
+                            <input
+                                id="password"
+                                type="password"
+                                placeholder="Enter your password"
+                                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                                value={pwd}
+                                onChange={event => setPwd(event.target.value)}
+                            />
+                        </div>
                         {authMode === 'login' && (
-                            <div>
-                                <button onClick={handleLogin}>
-                                    Login
-                                </button>
-                                <button
-                                    className="link-button"
-                                    onClick={() => setAuthMode('register')}
-                                >
-                                    Create account
-                                </button>
-                            </div>
-                            )}
-                        {authMode === 'register' && (
-                            <div>
-                                <button onClick={handleRegister}>
-                                Register
-                                </button>
-
-                                <button
-                                    className="link-button"
-                                    onClick={() => setAuthMode('login')}
-                                >
-                                    Back to login
-                                </button>
+                            <div className="auth-actions">
+                                <button onClick={handleLogin}>Login</button>
+                                <p className="auth-switch">
+                                    New here?{' '}
+                                    <button className="link-button" onClick={() => setAuthMode('register')}>Create account</button>
+                                </p>
                             </div>
                         )}
-                    </div>
+                        {authMode === 'register' && (
+                            <div className="auth-actions">
+                                <button onClick={handleRegister}>Register</button>
+                                <p className="auth-switch">
+                                    Already have an account?{' '}
+                                    <button className="link-button" onClick={() => setAuthMode('login')}>Back to login</button>
+                                </p>
+                            </div>
+                        )}
+                    </section>
                 </div>
             </main>
         )
     }
 
     return (
-        <main>
-            <h1>JobTracker</h1>
-
-            <button onClick={openSearch}>
-                Search Jobs
-            </button>
-
-            <button onClick={openApplications}>
-                My Applications
-            </button>
-
-            <button onClick={onLogout}>
-                Log out
-            </button>
-
-            {error && <p>{error}</p>}
-            {message && <p>{message}</p>}
-
+        <main className="app-shell">
+            <header className="app-header">
+                <div className="brand">
+                    <span className="brand-mark" aria-hidden="true">JT</span>
+                    <span>JobTracker</span>
+                </div>
+                <button className="button-secondary" onClick={onLogout}>Log out</button>
+            </header>
+            <nav className="view-tabs" aria-label="Main navigation">
+                <button aria-pressed={view === 'search'} onClick={openSearch}>Search Jobs</button>
+                <button aria-pressed={view === 'applications'} onClick={openApplications}>My Applications</button>
+            </nav>
+            {error && <p className="notice notice-error" role="alert">{error}</p>}
+            {message && <p className="notice notice-success" role="status">{message}</p>}
             {view === 'search' && (
-                <div>
-                    <input
-                        type="text"
-                        placeholder="Search jobs"
-                        value={search}
-                        onChange={event => setSearch(event.target.value)}
-                    />
-
-                    <input
-                        type="text"
-                        placeholder="Location"
-                        value={location}
-                        onChange={event => setLocation(event.target.value)}
-                    />
-
-                    <button
-                        onClick={handleSearch}
-                        disabled={loadingJobs}
-                    >
-                        Search
-                    </button>
-
-                    {loadingJobs && <p>Loading jobs...</p>}
-
-                    {jobs.map(job => (
-                        <div key={job.externalId}>
-                            <h2>{job.position}</h2>
-                            <p>{job.company}</p>
-                            <p>{job.location}</p>
-
-                            {job.url && (
-                                <a href={job.url}>
-                                    Open
-                                </a>
-                            )}
-
-                            <button
-                                onClick={() => handleSave(job)}
-                                disabled={!job.company.trim()}
-                            >
-                                Save
-                            </button>
+                <section aria-labelledby="search-title">
+                    <div className="section-heading">
+                        <p className="eyebrow">Explore opportunities</p>
+                        <h1 id="search-title">Find your next role.</h1>
+                        <p className="muted">A good opportunity is a search away.</p>
+                    </div>
+                    <div className="search-bar">
+                        <div className="field">
+                            <label htmlFor="job-search">Role or keyword</label>
+                            <input
+                                id="job-search"
+                                type="text"
+                                placeholder="e.g. Junior .NET developer"
+                                value={search}
+                                onChange={event => setSearch(event.target.value)}
+                            />
                         </div>
-                    ))}
-                </div>
-            )}
-
-            {view === 'applications' && (
-                <div>
-                    {loadingApplications && (
-                        <p>Loading applications...</p>
+                        <div className="field">
+                            <label htmlFor="job-location">Location</label>
+                            <input
+                                id="job-location"
+                                type="text"
+                                placeholder="e.g. Brno"
+                                value={location}
+                                onChange={event => setLocation(event.target.value)}
+                            />
+                        </div>
+                        <button onClick={handleSearch} disabled={loadingJobs}>Search</button>
+                    </div>
+                    {loadingJobs && <p className="loading-message" role="status">Loading jobs...</p>}
+                    {!loadingJobs && jobs.length === 0 && (
+                        <div className="empty-state">
+                            <h2>Make room for your next opportunity.</h2>
+                            <p className="muted">Search by role and location to discover jobs you can save.</p>
+                        </div>
                     )}
-
-                    {!loadingApplications &&
-                        myApplications.length === 0 && (
-                            <p>No saved applications yet.</p>
-                        )}
-
-                    {myApplications.map(application => (
-                        <div key={application.id}>
-                            <h2>{application.position}</h2>
-                            <p>{application.company}</p>
-                            <p>{application.location}</p>
-
-                            <label
-                                htmlFor={`status-${application.id}`}
-                            >
-                                Status
-                            </label>
-
-                            <select
-                                id={`status-${application.id}`}
-                                value={application.status}
-                                onChange={event =>
-                                    changeStatus(
-                                        application.id,
-                                        event.target.value
-                                    )
-                                }
-                            >
-                                <option value="Interested">
-                                    Interested
-                                </option>
-                                <option value="Applied">
-                                    Applied
-                                </option>
-                                <option value="Interview">
-                                    Interview
-                                </option>
-                                <option value="Offer">
-                                    Offer
-                                </option>
-                                <option value="Rejected">
-                                    Rejected
-                                </option>
-                            </select>
-
-                            {application.jobUrl && (
-                                <a href={application.jobUrl}>
-                                    Open
-                                </a>
-                            )}
-
-                            <button
-                                onClick={() =>
-                                    handleRemove(application.id)
-                                }
-                            >
-                                Remove
-                            </button>
+                    <div className="card-grid">
+                        {jobs.map(job => (
+                            <article className="job-card" key={job.externalId}>
+                                <p className="company-name">{job.company}</p>
+                                <h2>{job.position}</h2>
+                                {job.location && <p className="muted">{job.location}</p>}
+                                <div className="card-actions">
+                                    {job.url && <a href={job.url}>View job <span aria-hidden="true">↗</span></a>}
+                                    <button onClick={() => handleSave(job)} disabled={!job.company.trim()}>Save</button>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            )}
+            {view === 'applications' && (
+                <section aria-labelledby="applications-title">
+                    <div className="section-heading">
+                        <p className="eyebrow">Your progress, in one place</p>
+                        <h1 id="applications-title">My applications.</h1>
+                        <p className="muted">Keep track of each opportunity and its next step.</p>
+                    </div>
+                    {loadingApplications && <p className="loading-message" role="status">Loading applications...</p>}
+                    {!loadingApplications && myApplications.length === 0 && (
+                        <div className="empty-state">
+                            <h2>No saved applications yet.</h2>
+                            <p className="muted">Save a role from Search Jobs to start tracking it here.</p>
                         </div>
-                    ))}
-                </div>
+                    )}
+                    <div className="card-grid">
+                        {myApplications.map(application => (
+                            <article className="job-card" key={application.id}>
+                                <p className="company-name">{application.company}</p>
+                                <h2>{application.position}</h2>
+                                {application.location && <p className="muted">{application.location}</p>}
+                                <div className="field application-status">
+                                    <label htmlFor={`status-${application.id}`}>Status</label>
+                                    <select
+                                        className="status-select"
+                                        data-status={application.status}
+                                        id={`status-${application.id}`}
+                                        value={application.status}
+                                        onChange={event => changeStatus(application.id, event.target.value)}
+                                    >
+                                        <option value="Interested">Interested</option>
+                                        <option value="Applied">Applied</option>
+                                        <option value="Interview">Interview</option>
+                                        <option value="Offer">Offer</option>
+                                        <option value="Rejected">Rejected</option>
+                                    </select>
+                                </div>
+                                <div className="card-actions">
+                                    {application.jobUrl && <a href={application.jobUrl}>View job <span aria-hidden="true">↗</span></a>}
+                                    <button className="button-danger" onClick={() => handleRemove(application.id)}>Remove</button>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
             )}
         </main>
     )
