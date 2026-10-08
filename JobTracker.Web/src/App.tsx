@@ -49,7 +49,7 @@ async function getAuthError(response: Response, fallback: string): Promise<strin
 }
 
 
-function App() {
+function JobTracker({ onLogout }: { onLogout: () => void }) {
     const [email, setEmail] = useState('')
     const [pwd, setPwd] = useState('')
     const [token, setToken] = useState<string | null>(null)
@@ -376,6 +376,10 @@ function App() {
                 My Applications
             </button>
 
+            <button onClick={onLogout}>
+                Log out
+            </button>
+
             {error && <p>{error}</p>}
             {message && <p>{message}</p>}
 
@@ -495,6 +499,17 @@ function App() {
                 </div>
             )}
         </main>
+    )
+}
+
+function App() {
+    const [session, setSession] = useState(0)
+
+    return (
+        <JobTracker
+            key={session}
+            onLogout={() => setSession(current => current + 1)}
+        />
     )
 }
 
