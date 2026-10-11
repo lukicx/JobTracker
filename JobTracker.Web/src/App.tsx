@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import './App.css'
 import './index.css'
 
@@ -9,6 +9,57 @@ type ExternalJob = {
     location?: string
     url?: string
     description?: string
+}
+
+type JobSource = 'jobscz' | 'jooble'
+type SearchSource = 'all' | JobSource
+
+type JobSearch = { search: string; location: string; source: SearchSource }
+type JobSearchResponse = {
+    jobs: ExternalJob[]
+    nextJobsCzPage: number | null
+    nextJooblePage: number | null
+}
+
+const sourceLabels = { jobscz: 'Jobs.cz', jooble: 'Jooble', other: 'Other' }
+const jobsPerPage = 30
+
+function Pagination({ page, pageCount, disabled, onChange, position }: {
+    page: number
+    pageCount: number
+    disabled: boolean
+    onChange: (page: number) => void
+    position: string
+}) {
+    if (pageCount <= 1) return null
+
+    const pages = Array.from({ length: pageCount }, (_, index) => index + 1)
+        .filter(number => pageCount <= 7 || number === 1 || number === pageCount || Math.abs(number - page) <= 1)
+
+    return (
+        <nav className="pagination" aria-label={`Job results pages ${position}`}>
+            <button className="button-secondary" disabled={disabled || page === 1} onClick={() => onChange(page - 1)}>Previous</button>
+            {pages.map((number, index) => (
+                <span className="pagination-item" key={number}>
+                    {index > 0 && number - pages[index - 1] > 1 && <span className="pagination-gap" aria-hidden="true">…</span>}
+                    <button
+                        className="button-secondary page-number"
+                        aria-label={`Page ${number}`}
+                        aria-current={number === page ? 'page' : undefined}
+                        disabled={disabled}
+                        onClick={() => onChange(number)}
+                    >{number}</button>
+                </span>
+            ))}
+            <button className="button-secondary" disabled={disabled || page === pageCount} onClick={() => onChange(page + 1)}>Next</button>
+        </nav>
+    )
+}
+
+function getJobSource(job: ExternalJob): JobSource | 'other' {
+    if (job.externalId.startsWith('jobscz:')) return 'jobscz'
+    if (job.externalId.startsWith('jooble:')) return 'jooble'
+    return 'other'
 }
 
 type JobApplication = {
@@ -56,6 +107,9 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
     
     const [jobs, setJobs] = useState<ExternalJob[]>([])
+    const [jobSource, setJobSource] = useState<SearchSource>('all')
+    const [submittedSearch, setSubmittedSearch] = useState<JobSearch | null>(null)
+    const [nextPages, setNextPages] = useState<{ jobscz: number | null; jooble: number | null }>({ jobscz: null, jooble: null })
     const [myApplications, setMyApplications] = useState<JobApplication[]>([])
 
     const [search, setSearch] = useState('')
@@ -64,31 +118,53 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
     const [view, setView] = useState<'search' | 'applications'>('search')
 
     const [loadingJobs, setLoadingJobs] = useState(false)
+    const [page, setPage] = useState(1)
+    const [pendingPage, setPendingPage] = useState<number | null>(null)
+    const resultsRef = useRef<HTMLDivElement>(null)
     const [loadingApplications, setLoadingApplications] = useState(false)
 
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState<string | null>(null)
 
+    const hasSearched = submittedSearch !== null
+    const resultSource = submittedSearch?.source ?? 'all'
+    const hasMore = nextPages.jobscz !== null || nextPages.jooble !== null
+    const pageCount = Math.max(1, Math.ceil(jobs.length / jobsPerPage) + (hasMore ? 1 : 0))
+    const visibleJobs = jobs.slice((page - 1) * jobsPerPage, page * jobsPerPage)
+
+    function scrollToResults() {
+        requestAnimationFrame(() => {
+            resultsRef.current?.focus({ preventScroll: true })
+            resultsRef.current?.scrollIntoView({ block: 'start' })
+        })
+    }
+
     async function handleSearch() {
+        if (loadingJobs) return
+        const query = { search, location, source: jobSource }
+
         setError(null)
         setMessage(null)
         setLoadingJobs(true)
+        setPendingPage(null)
 
         try {
-            const params = new URLSearchParams({
-                search,
-                location
-            })
-
+            const params = new URLSearchParams(query)
             const response = await fetch('/api/jobs?' + params)
 
             if (!response.ok) {
-                setError(`Could not load jobs. HTTP ${response.status}`)
+                const problem: { detail?: string } | null = await response.json().catch(() => null)
+                setError(problem?.detail ?? `Could not load jobs. HTTP ${response.status}`)
                 return
             }
 
-            const result: ExternalJob[] = await response.json()
-            setJobs(result)
+            const result: JobSearchResponse = await response.json()
+            setJobs(result.jobs)
+            setSubmittedSearch(query)
+            setPage(1)
+            setNextPages({ jobscz: result.nextJobsCzPage, jooble: result.nextJooblePage })
+            setError(response.headers.get('X-Job-Search-Warning'))
+            scrollToResults()
         }
         catch (error) {
             console.error('Request failed:', error)
@@ -97,6 +173,61 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
         finally {
             setLoadingJobs(false)
         }
+    }
+
+    async function changePage(requestedPage: number) {
+        if (!submittedSearch || loadingJobs || requestedPage < 1 || requestedPage > pageCount || requestedPage === page) return
+
+        setError(null)
+        setMessage(null)
+        let availableJobs = jobs
+        let cursors = nextPages
+
+        // Fill the displayed page from provider batches; keep visited jobs in memory.
+        if (availableJobs.length < requestedPage * jobsPerPage && hasMore) {
+            setLoadingJobs(true)
+            setPendingPage(requestedPage)
+            try {
+                while (availableJobs.length < requestedPage * jobsPerPage && (cursors.jobscz !== null || cursors.jooble !== null)) {
+                    const params = new URLSearchParams(submittedSearch)
+                    params.set('jobsCzPage', String(cursors.jobscz ?? 0))
+                    params.set('jooblePage', String(cursors.jooble ?? 0))
+                    const response = await fetch('/api/jobs?' + params)
+                    if (!response.ok) {
+                        const problem: { detail?: string } | null = await response.json().catch(() => null)
+                        setError(problem?.detail ?? `Could not load jobs. HTTP ${response.status}`)
+                        return
+                    }
+
+                    const result: JobSearchResponse = await response.json()
+                    const ids = new Set(availableJobs.map(job => job.externalId))
+                    const newJobs = result.jobs.filter(job => {
+                        if (ids.has(job.externalId)) return false
+                        ids.add(job.externalId)
+                        return true
+                    })
+                    availableJobs = [...availableJobs, ...newJobs]
+                    cursors = { jobscz: result.nextJobsCzPage, jooble: result.nextJooblePage }
+                    setJobs(availableJobs)
+                    setNextPages(cursors)
+
+                    const warning = response.headers.get('X-Job-Search-Warning')
+                    setError(warning)
+                    // Preserve failed provider cursors for the next navigation attempt.
+                    if (warning) break
+                }
+            } catch {
+                setError('Could not reach the API.')
+                return
+            } finally {
+                setLoadingJobs(false)
+                setPendingPage(null)
+            }
+        }
+
+        // Providers can end with an empty or duplicate-only batch.
+        setPage(Math.min(requestedPage, Math.max(1, Math.ceil(availableJobs.length / jobsPerPage))))
+        scrollToResults()
     }
 
     async function handleSave(job: ExternalJob) {
@@ -135,7 +266,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
 
             setMessage(`Saved ${body.position}.`)
         }
-        catch (error) {
+        catch {
             setError('Could not reach the API.')
         }
     }
@@ -202,7 +333,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
             )
             setMessage('Application removed.')
         }
-        catch (error) {
+        catch {
             setError('Could not reach the API.')
         }
     }
@@ -425,28 +556,63 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                                 onChange={event => setLocation(event.target.value)}
                             />
                         </div>
-                        <button onClick={handleSearch} disabled={loadingJobs}>Search</button>
+                        <div className="field">
+                            <label htmlFor="job-source">Source</label>
+                            <select
+                                id="job-source"
+                                value={jobSource}
+                                onChange={event => setJobSource(event.target.value as SearchSource)}
+                                disabled={loadingJobs}
+                            >
+                                <option value="all">All sources</option>
+                                <option value="jobscz">Jobs.cz</option>
+                                <option value="jooble">Jooble</option>
+                            </select>
+                        </div>
+                        <button onClick={() => handleSearch()} disabled={loadingJobs}>Search</button>
                     </div>
-                    {loadingJobs && <p className="loading-message" role="status">Loading jobs...</p>}
+                    <div ref={resultsRef} className="search-results-start" tabIndex={-1}>
+                        {loadingJobs && <p className="loading-message" role="status">{pendingPage === null ? 'Loading jobs...' : `Loading page ${pendingPage}...`}</p>}
+                        {hasSearched && (
+                            <p className="search-result-count muted" role="status">
+                                {jobs.length === 0 ? 'No results' : `Page ${page} · Jobs ${(page - 1) * jobsPerPage + 1}–${(page - 1) * jobsPerPage + visibleJobs.length}`}
+                                {resultSource === 'all' ? ' from all sources' : ` from ${sourceLabels[resultSource]}`}
+                            </p>
+                        )}
+                    </div>
+                    {!loadingJobs && submittedSearch && (jobSource !== resultSource || search !== submittedSearch.search || location !== submittedSearch.location) && (
+                        <p className="search-result-count muted">Press Search to apply these changes. Page navigation uses your previous search.</p>
+                    )}
+                    {jobs.length > 0 && <Pagination page={page} pageCount={pageCount} disabled={loadingJobs} onChange={changePage} position="above results" />}
                     {!loadingJobs && jobs.length === 0 && (
                         <div className="empty-state">
-                            <h2>Make room for your next opportunity.</h2>
-                            <p className="muted">Search by role and location to discover jobs you can save.</p>
+                            <h2>{!hasSearched
+                                ? 'Make room for your next opportunity.'
+                                : resultSource === 'all' ? 'No jobs found.' : `No ${sourceLabels[resultSource]} results.`}</h2>
+                            <p className="muted">{!hasSearched
+                                ? 'Search by role and location to discover jobs you can save.'
+                                : resultSource === 'all'
+                                    ? 'Try another role or location.'
+                                    : 'Try another keyword or choose All sources.'}</p>
                         </div>
                     )}
                     <div className="card-grid">
-                        {jobs.map(job => (
+                        {visibleJobs.map(job => (
                             <article className="job-card" key={job.externalId}>
-                                <p className="company-name">{job.company}</p>
+                                <div className="job-card-heading">
+                                    <p className="company-name">{job.company}</p>
+                                    <span className="job-source">{sourceLabels[getJobSource(job)]}</span>
+                                </div>
                                 <h2>{job.position}</h2>
                                 {job.location && <p className="muted">{job.location}</p>}
                                 <div className="card-actions">
-                                    {job.url && <a href={job.url}>View job <span aria-hidden="true">↗</span></a>}
+                                    {job.url && <a href={job.url} target="_blank" rel="noreferrer">View job <span aria-hidden="true">↗</span></a>}
                                     <button onClick={() => handleSave(job)} disabled={!job.company.trim()}>Save</button>
                                 </div>
                             </article>
                         ))}
                     </div>
+                    {jobs.length > 0 && <Pagination page={page} pageCount={pageCount} disabled={loadingJobs} onChange={changePage} position="below results" />}
                 </section>
             )}
             {view === 'applications' && (
