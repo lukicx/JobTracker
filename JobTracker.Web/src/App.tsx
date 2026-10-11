@@ -569,7 +569,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                                 <option value="jooble">Jooble</option>
                             </select>
                         </div>
-                        <button onClick={() => handleSearch()} disabled={loadingJobs}>Search</button>
+                        <button onClick={() => handleSearch()} disabled={loadingJobs || !search.trim()}>Search</button>
                     </div>
                     <div ref={resultsRef} className="search-results-start" tabIndex={-1}>
                         {loadingJobs && <p className="loading-message" role="status">{pendingPage === null ? 'Loading jobs...' : `Loading page ${pendingPage}...`}</p>}

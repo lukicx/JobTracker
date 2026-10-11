@@ -18,7 +18,7 @@ public class JobsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<JobSearchResponse>> SearchJobs(
-        string search, string location, string source = "all", int page = 1,
+        string search, string? location, string source = "all", int page = 1,
         int? jobsCzPage = null, int? jooblePage = null)
     {
         source = source.Trim().ToLowerInvariant();
@@ -36,7 +36,7 @@ public class JobsController : ControllerBase
         }
 
         var (result, warnings, providerCount) = await _jobSearch.SearchJobsAsync(
-            search, location, source, jobsCzPage ?? page, jooblePage ?? page);
+            search, location ?? "", source, jobsCzPage ?? page, jooblePage ?? page);
 
         if (providerCount == 0)
         {
