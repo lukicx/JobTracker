@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import './index.css'
+import { LegalFooter, LegalPage, type LegalPageKey } from './Legal'
 
 type ExternalJob = {
     externalId: string
@@ -48,13 +49,29 @@ async function getAuthError(response: Response, fallback: string): Promise<strin
     return fallback
 }
 
+function safeExternalUrl(value?: string): string | undefined {
+    if (!value) {
+        return undefined
+    }
+
+    try {
+        const parsed = new URL(value)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+            ? parsed.toString()
+            : undefined
+    }
+    catch {
+        return undefined
+    }
+}
 
 function JobTracker({ onLogout }: { onLogout: () => void }) {
     const [email, setEmail] = useState('')
     const [pwd, setPwd] = useState('')
     const [token, setToken] = useState<string | null>(null)
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-    
+    const [acceptedLegal, setAcceptedLegal] = useState(false)
+
     const [jobs, setJobs] = useState<ExternalJob[]>([])
     const [myApplications, setMyApplications] = useState<JobApplication[]>([])
 
@@ -107,7 +124,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
             company: job.company,
             position: job.position,
             location: job.location,
-            jobUrl: job.url,
+            jobUrl: safeExternalUrl(job.url),
             status: 'Interested'
         }
 
@@ -118,7 +135,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization' : `Bearer ${token}`
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify(request)
                 }
@@ -130,12 +147,9 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
             }
 
             const body: JobApplication = await response.json()
-
-            console.log('Saved:', body)
-
             setMessage(`Saved ${body.position}.`)
         }
-        catch (error) {
+        catch {
             setError('Could not reach the API.')
         }
     }
@@ -148,12 +162,10 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
         try {
             const response = await fetch('/api/applications',
                 {
-                    
-                method: 'GET',
-                headers:
-                    {
+                    method: 'GET',
+                    headers: {
                         'Content-Type': 'application/json',
-                        'Authorization' : `Bearer ${token}`
+                        'Authorization': `Bearer ${token}`
                     }
                 }
             )
@@ -184,11 +196,10 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                 `/api/applications/${id}`,
                 {
                     method: 'DELETE',
-                    headers:
-                        {
-                            'Content-Type': 'application/json',
-                            'Authorization' : `Bearer ${token}`
-                        }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
                 }
             )
 
@@ -202,7 +213,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
             )
             setMessage('Application removed.')
         }
-        catch (error) {
+        catch {
             setError('Could not reach the API.')
         }
     }
@@ -218,7 +229,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization' : `Bearer ${token}`
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({ status })
                 }
@@ -255,10 +266,11 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
         setMessage(null)
         setView('search')
     }
-    
-    async function handleLogin(){
+
+    async function handleLogin() {
         setError(null)
         setMessage(null)
+
         try {
             const response = await fetch('/api/login',
                 {
@@ -268,23 +280,31 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                     },
                     body: JSON.stringify({ email: email.trim(), password: pwd })
                 })
-            if (!response.ok){
+
+            if (!response.ok) {
                 setError(await getAuthError(response, `Could not log in. HTTP ${response.status}`))
                 return
             }
+
             const result = await response.json()
             setToken(result.accessToken)
             setMessage('Logged in successfully.')
         }
-        catch (error){
+        catch (error) {
             console.error('Could not reach API:', error)
             setError('Could not reach the API.')
         }
-        
     }
-    async function handleRegister(){
+
+    async function handleRegister() {
         setError(null)
         setMessage(null)
+
+        if (!acceptedLegal) {
+            setError('Please confirm that you have read the Privacy Policy and agree to the Terms.')
+            return
+        }
+
         try {
             const response = await fetch('/api/register',
                 {
@@ -294,29 +314,33 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                     },
                     body: JSON.stringify({ email: email.trim(), password: pwd })
                 })
-            if (!response.ok){
+
+            if (!response.ok) {
                 setError(await getAuthError(response, `Could not register. HTTP ${response.status}`))
                 return
             }
+
             setAuthMode('login')
+            setAcceptedLegal(false)
             setMessage('Account created successfully. Log in with your email and password.')
         }
-        catch (error){
+        catch (error) {
             console.error('Could not reach API:', error)
             setError('Could not reach the API.')
         }
-        
     }
 
     if (!token) {
         return (
-            <main className="app-shell auth-shell">
+            <main className="app-shell auth-shell" id="main-content">
+                <a className="skip-link" href="#auth-card">Skip to account form</a>
                 <header className="app-header">
                     <div className="brand">
                         <span className="brand-mark" aria-hidden="true">JT</span>
                         <span>JobTracker</span>
                     </div>
                 </header>
+
                 <div className="auth-layout">
                     <section className="auth-intro">
                         <p className="eyebrow">One place for your job search</p>
@@ -325,65 +349,115 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                             Find opportunities, save the roles you like, and keep
                             track of every application.
                         </p>
-                        <div className="intro-note">From the first interesting role to your next offer.</div>
+                        <div className="intro-note">Track roles from discovery through your own application process.</div>
                     </section>
-                    <section className="auth-card" aria-labelledby="auth-title">
+
+                    <section className="auth-card" id="auth-card" aria-labelledby="auth-title">
                         <h2 id="auth-title">{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
                         <p className="muted auth-description">
                             {authMode === 'login'
                                 ? 'Log in to continue your job search.'
                                 : 'Start keeping your applications in one place.'}
                         </p>
+
                         {error && <p className="notice notice-error" role="alert">{error}</p>}
                         {message && <p className="notice notice-success" role="status">{message}</p>}
-                        <div className="field">
-                            <label htmlFor="email">Email address</label>
-                            <input
-                                id="email"
-                                type="email"
-                                placeholder="you@example.com"
-                                autoComplete="email"
-                                value={email}
-                                onChange={event => setEmail(event.target.value)}
-                            />
-                        </div>
-                        <div className="field">
-                            <label htmlFor="password">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                placeholder="Enter your password"
-                                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                                value={pwd}
-                                onChange={event => setPwd(event.target.value)}
-                            />
-                        </div>
-                        {authMode === 'login' && (
+
+                        <form
+                            className="auth-form"
+                            onSubmit={event => {
+                                event.preventDefault()
+                                void (authMode === 'login' ? handleLogin() : handleRegister())
+                            }}
+                        >
+                            <div className="field">
+                                <label htmlFor="email">Email address</label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    autoComplete="email"
+                                    required
+                                    value={email}
+                                    onChange={event => setEmail(event.target.value)}
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label htmlFor="password">Password</label>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    placeholder="Enter your password"
+                                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                                    required
+                                    value={pwd}
+                                    onChange={event => setPwd(event.target.value)}
+                                />
+                            </div>
+
+                            {authMode === 'register' && (
+                                <div className="consent-row">
+                                    <input
+                                        id="legal-acknowledgement"
+                                        type="checkbox"
+                                        checked={acceptedLegal}
+                                        onChange={event => setAcceptedLegal(event.target.checked)}
+                                        required
+                                    />
+                                    <label htmlFor="legal-acknowledgement">
+                                        I have read the{' '}
+                                        <a href="#privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                                        {' '}and agree to the{' '}
+                                        <a href="#terms" target="_blank" rel="noopener noreferrer">Terms and Conditions</a>.
+                                    </label>
+                                </div>
+                            )}
+
                             <div className="auth-actions">
-                                <button onClick={handleLogin}>Login</button>
+                                <button type="submit">
+                                    {authMode === 'login' ? 'Log in' : 'Create account'}
+                                </button>
+
                                 <p className="auth-switch">
-                                    New here?{' '}
-                                    <button className="link-button" onClick={() => setAuthMode('register')}>Create account</button>
+                                    {authMode === 'login' ? (
+                                        <>
+                                            New here?{' '}
+                                            <button
+                                                type="button"
+                                                className="link-button"
+                                                onClick={() => setAuthMode('register')}
+                                            >
+                                                Create account
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            Already have an account?{' '}
+                                            <button
+                                                type="button"
+                                                className="link-button"
+                                                onClick={() => setAuthMode('login')}
+                                            >
+                                                Back to login
+                                            </button>
+                                        </>
+                                    )}
                                 </p>
                             </div>
-                        )}
-                        {authMode === 'register' && (
-                            <div className="auth-actions">
-                                <button onClick={handleRegister}>Register</button>
-                                <p className="auth-switch">
-                                    Already have an account?{' '}
-                                    <button className="link-button" onClick={() => setAuthMode('login')}>Back to login</button>
-                                </p>
-                            </div>
-                        )}
+                        </form>
                     </section>
                 </div>
+
+                <LegalFooter />
             </main>
         )
     }
 
     return (
-        <main className="app-shell">
+        <main className="app-shell" id="main-content">
+            <a className="skip-link" href="#content">Skip to content</a>
+
             <header className="app-header">
                 <div className="brand">
                     <span className="brand-mark" aria-hidden="true">JT</span>
@@ -391,115 +465,205 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                 </div>
                 <button className="button-secondary" onClick={onLogout}>Log out</button>
             </header>
+
             <nav className="view-tabs" aria-label="Main navigation">
-                <button aria-pressed={view === 'search'} onClick={openSearch}>Search Jobs</button>
-                <button aria-pressed={view === 'applications'} onClick={openApplications}>My Applications</button>
+                <button aria-pressed={view === 'search'} onClick={openSearch}>Search jobs</button>
+                <button aria-pressed={view === 'applications'} onClick={openApplications}>My applications</button>
             </nav>
-            {error && <p className="notice notice-error" role="alert">{error}</p>}
-            {message && <p className="notice notice-success" role="status">{message}</p>}
-            {view === 'search' && (
-                <section aria-labelledby="search-title">
-                    <div className="section-heading">
-                        <p className="eyebrow">Explore opportunities</p>
-                        <h1 id="search-title">Find your next role.</h1>
-                        <p className="muted">A good opportunity is a search away.</p>
-                    </div>
-                    <div className="search-bar">
-                        <div className="field">
-                            <label htmlFor="job-search">Role or keyword</label>
-                            <input
-                                id="job-search"
-                                type="text"
-                                placeholder="e.g. Junior .NET developer"
-                                value={search}
-                                onChange={event => setSearch(event.target.value)}
-                            />
+
+            <div id="content">
+                {error && <p className="notice notice-error" role="alert">{error}</p>}
+                {message && <p className="notice notice-success" role="status">{message}</p>}
+
+                {view === 'search' && (
+                    <section aria-labelledby="search-title">
+                        <div className="section-heading">
+                            <p className="eyebrow">Explore opportunities</p>
+                            <h1 id="search-title">Find your next role.</h1>
+                            <p className="muted">Search third-party listings by role and location.</p>
                         </div>
-                        <div className="field">
-                            <label htmlFor="job-location">Location</label>
-                            <input
-                                id="job-location"
-                                type="text"
-                                placeholder="e.g. Brno"
-                                value={location}
-                                onChange={event => setLocation(event.target.value)}
-                            />
+
+                        <form
+                            className="search-bar"
+                            onSubmit={event => {
+                                event.preventDefault()
+                                void handleSearch()
+                            }}
+                        >
+                            <div className="field">
+                                <label htmlFor="job-search">Role or keyword</label>
+                                <input
+                                    id="job-search"
+                                    type="text"
+                                    placeholder="e.g. Junior .NET developer"
+                                    value={search}
+                                    onChange={event => setSearch(event.target.value)}
+                                />
+                            </div>
+
+                            <div className="field">
+                                <label htmlFor="job-location">Location</label>
+                                <input
+                                    id="job-location"
+                                    type="text"
+                                    placeholder="e.g. Brno"
+                                    value={location}
+                                    onChange={event => setLocation(event.target.value)}
+                                />
+                            </div>
+
+                            <button type="submit" disabled={loadingJobs}>
+                                {loadingJobs ? 'Searching…' : 'Search jobs'}
+                            </button>
+                        </form>
+
+                        {loadingJobs && <p className="loading-message" role="status">Loading jobs...</p>}
+
+                        {!loadingJobs && jobs.length === 0 && (
+                            <div className="empty-state">
+                                <h2>No search results loaded yet.</h2>
+                                <p className="muted">Search by role and location to load job listings.</p>
+                            </div>
+                        )}
+
+                        <div className="card-grid">
+                            {jobs.map(job => {
+                                const jobUrl = safeExternalUrl(job.url)
+
+                                return (
+                                    <article className="job-card" key={job.externalId}>
+                                        <p className="company-name">{job.company}</p>
+                                        <h2>{job.position}</h2>
+                                        {job.location && <p className="muted">{job.location}</p>}
+
+                                        <div className="card-actions">
+                                            {jobUrl && (
+                                                <a
+                                                    href={jobUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    View original job
+                                                    <span aria-hidden="true"> ↗</span>
+                                                    <span className="sr-only"> (opens in a new tab)</span>
+                                                </a>
+                                            )}
+                                            <button
+                                                onClick={() => handleSave(job)}
+                                                disabled={!job.company.trim()}
+                                            >
+                                                Save job
+                                            </button>
+                                        </div>
+                                    </article>
+                                )
+                            })}
                         </div>
-                        <button onClick={handleSearch} disabled={loadingJobs}>Search</button>
-                    </div>
-                    {loadingJobs && <p className="loading-message" role="status">Loading jobs...</p>}
-                    {!loadingJobs && jobs.length === 0 && (
-                        <div className="empty-state">
-                            <h2>Make room for your next opportunity.</h2>
-                            <p className="muted">Search by role and location to discover jobs you can save.</p>
+                    </section>
+                )}
+
+                {view === 'applications' && (
+                    <section aria-labelledby="applications-title">
+                        <div className="section-heading">
+                            <p className="eyebrow">Your progress, in one place</p>
+                            <h1 id="applications-title">My applications.</h1>
+                            <p className="muted">Keep track of each opportunity and its next step.</p>
                         </div>
-                    )}
-                    <div className="card-grid">
-                        {jobs.map(job => (
-                            <article className="job-card" key={job.externalId}>
-                                <p className="company-name">{job.company}</p>
-                                <h2>{job.position}</h2>
-                                {job.location && <p className="muted">{job.location}</p>}
-                                <div className="card-actions">
-                                    {job.url && <a href={job.url}>View job <span aria-hidden="true">↗</span></a>}
-                                    <button onClick={() => handleSave(job)} disabled={!job.company.trim()}>Save</button>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
-                </section>
-            )}
-            {view === 'applications' && (
-                <section aria-labelledby="applications-title">
-                    <div className="section-heading">
-                        <p className="eyebrow">Your progress, in one place</p>
-                        <h1 id="applications-title">My applications.</h1>
-                        <p className="muted">Keep track of each opportunity and its next step.</p>
-                    </div>
-                    {loadingApplications && <p className="loading-message" role="status">Loading applications...</p>}
-                    {!loadingApplications && myApplications.length === 0 && (
-                        <div className="empty-state">
-                            <h2>No saved applications yet.</h2>
-                            <p className="muted">Save a role from Search Jobs to start tracking it here.</p>
+
+                        {loadingApplications && <p className="loading-message" role="status">Loading applications...</p>}
+
+                        {!loadingApplications && myApplications.length === 0 && (
+                            <div className="empty-state">
+                                <h2>No saved applications yet.</h2>
+                                <p className="muted">Save a role from Search jobs to start tracking it here.</p>
+                            </div>
+                        )}
+
+                        <div className="card-grid">
+                            {myApplications.map(application => {
+                                const jobUrl = safeExternalUrl(application.jobUrl)
+
+                                return (
+                                    <article className="job-card" key={application.id}>
+                                        <p className="company-name">{application.company}</p>
+                                        <h2>{application.position}</h2>
+                                        {application.location && <p className="muted">{application.location}</p>}
+
+                                        <div className="field application-status">
+                                            <label htmlFor={`status-${application.id}`}>Application status</label>
+                                            <select
+                                                className="status-select"
+                                                data-status={application.status}
+                                                id={`status-${application.id}`}
+                                                value={application.status}
+                                                onChange={event => changeStatus(application.id, event.target.value)}
+                                            >
+                                                <option value="Interested">Interested</option>
+                                                <option value="Applied">Applied</option>
+                                                <option value="Interview">Interview</option>
+                                                <option value="Offer">Offer</option>
+                                                <option value="Rejected">Rejected</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="card-actions">
+                                            {jobUrl && (
+                                                <a
+                                                    href={jobUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    View original job
+                                                    <span aria-hidden="true"> ↗</span>
+                                                    <span className="sr-only"> (opens in a new tab)</span>
+                                                </a>
+                                            )}
+                                            <button
+                                                className="button-danger"
+                                                onClick={() => handleRemove(application.id)}
+                                            >
+                                                Remove application
+                                            </button>
+                                        </div>
+                                    </article>
+                                )
+                            })}
                         </div>
-                    )}
-                    <div className="card-grid">
-                        {myApplications.map(application => (
-                            <article className="job-card" key={application.id}>
-                                <p className="company-name">{application.company}</p>
-                                <h2>{application.position}</h2>
-                                {application.location && <p className="muted">{application.location}</p>}
-                                <div className="field application-status">
-                                    <label htmlFor={`status-${application.id}`}>Status</label>
-                                    <select
-                                        className="status-select"
-                                        data-status={application.status}
-                                        id={`status-${application.id}`}
-                                        value={application.status}
-                                        onChange={event => changeStatus(application.id, event.target.value)}
-                                    >
-                                        <option value="Interested">Interested</option>
-                                        <option value="Applied">Applied</option>
-                                        <option value="Interview">Interview</option>
-                                        <option value="Offer">Offer</option>
-                                        <option value="Rejected">Rejected</option>
-                                    </select>
-                                </div>
-                                <div className="card-actions">
-                                    {application.jobUrl && <a href={application.jobUrl}>View job <span aria-hidden="true">↗</span></a>}
-                                    <button className="button-danger" onClick={() => handleRemove(application.id)}>Remove</button>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
-                </section>
-            )}
+                    </section>
+                )}
+            </div>
+
+            <LegalFooter />
         </main>
     )
 }
 
+function parseLegalPage(hash: string): LegalPageKey | null {
+    const page = hash.replace(/^#/, '')
+    return page === 'privacy' || page === 'terms' || page === 'cookies' || page === 'refunds'
+        ? page
+        : null
+}
+
 function App() {
     const [session, setSession] = useState(0)
+    const [legalPage, setLegalPage] = useState<LegalPageKey | null>(() =>
+        parseLegalPage(window.location.hash)
+    )
+
+    useEffect(() => {
+        const handleHashChange = () => {
+            setLegalPage(parseLegalPage(window.location.hash))
+            window.scrollTo({ top: 0, behavior: 'auto' })
+        }
+
+        window.addEventListener('hashchange', handleHashChange)
+        return () => window.removeEventListener('hashchange', handleHashChange)
+    }, [])
+
+    if (legalPage) {
+        return <LegalPage page={legalPage} />
+    }
 
     return (
         <JobTracker
