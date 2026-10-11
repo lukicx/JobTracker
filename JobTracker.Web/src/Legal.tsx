@@ -179,10 +179,11 @@ export function LegalPage({ page }: { page: LegalPageKey }) {
                 <section>
                     <h2>Analytics, cookies and embeds</h2>
                     <p>
-                        The current JobTracker codebase contains no analytics tracker,
-                        advertising pixel, third-party iframe/embed, cookie-setting code or
-                        browser local-storage use. See the Cookie Policy for what must change
-                        if any of these technologies are added later.
+                        The current frontend contains no analytics tracker, advertising
+                        pixel, third-party iframe/embed or browser local-storage use. Its
+                        normal login flow uses bearer tokens in memory rather than
+                        non-essential tracking technology. See the Cookie Policy for what
+                        must change if tracking or other device storage is added later.
                     </p>
                 </section>
             </LegalLayout>
@@ -269,10 +270,12 @@ export function LegalPage({ page }: { page: LegalPageKey }) {
                 <section>
                     <h2>Current cookie use</h2>
                     <p>
-                        The current JobTracker application code does not set cookies, use
-                        browser local storage, load analytics trackers or embed advertising
-                        technology. Authentication uses bearer tokens held in application
-                        memory for the active page session.
+                        The current JobTracker frontend does not use browser local storage,
+                        analytics trackers, advertising pixels or third-party embeds. Its
+                        normal login flow requests bearer-token authentication and keeps the
+                        access token in application memory for the active page session.
+                        Production must still be checked for framework, hosting, CDN or
+                        security cookies that are not visible from the frontend source code.
                     </p>
                 </section>
 
