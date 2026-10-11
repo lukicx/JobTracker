@@ -81,10 +81,10 @@ export function LegalFooter() {
     return (
         <footer className="legal-footer" aria-label="Legal information">
             <nav aria-label="Legal links">
-                <a href="#privacy">Privacy</a>
-                <a href="#terms">Terms</a>
-                <a href="#cookies">Cookies</a>
-                <a href="#refunds">Refunds</a>
+                <a href="#privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+                <a href="#terms" target="_blank" rel="noopener noreferrer">Terms</a>
+                <a href="#cookies" target="_blank" rel="noopener noreferrer">Cookies</a>
+                <a href="#refunds" target="_blank" rel="noopener noreferrer">Refunds</a>
             </nav>
             <p>
                 JobTracker is an independent project. Job-search results are supplied via
