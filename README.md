@@ -62,3 +62,20 @@ dotnet ef database update --project JobTracker.DAL --startup-project JobTracker.
 Configure `ConnectionStrings:DefaultConnection` through API user secrets or the
 `ConnectionStrings__DefaultConnection` environment variable when running locally.
 The original migration IDs are unchanged by the layer refactor.
+
+
+## Public deployment checklist
+
+Before public deployment, review [LEGAL_COMPLIANCE.md](LEGAL_COMPLIANCE.md) and configure the
+public legal metadata used by the frontend. Copy `JobTracker.Web/.env.example` into the build
+environment and set:
+
+- `VITE_OPERATOR_NAME`
+- `VITE_LEGAL_CONTACT_EMAIL`
+- `VITE_OPERATOR_BUSINESS_DETAILS`
+- `VITE_HOSTING_PROVIDER`
+
+These `VITE_*` values are embedded in the public frontend bundle, so do not put secrets in them.
+The site intentionally does not show a cookie-consent banner while it has no non-essential
+tracking; reassess this if analytics, advertising, embeds or production infrastructure add
+non-essential device storage.
