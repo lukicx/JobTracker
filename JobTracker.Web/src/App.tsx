@@ -652,7 +652,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                                     </select>
                                 </div>
                                 <div className="card-actions">
-                                    {application.jobUrl && <a href={application.jobUrl}>View job <span aria-hidden="true">↗</span></a>}
+                                    {application.jobUrl && <a href={application.jobUrl} target="_blank" rel="noreferrer">View job <span aria-hidden="true">↗</span></a>}
                                     <button className="button-danger" onClick={() => handleRemove(application.id)}>Remove</button>
                                 </div>
                             </article>
