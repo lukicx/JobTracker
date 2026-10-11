@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 export type LegalPageKey = 'privacy' | 'terms' | 'cookies' | 'refunds'
 
 const LAST_UPDATED = '11 October 2026'
-const REPOSITORY_URL = 'https://github.com/lukicx/JobTracker'
 
 function operatorValue(value: string | undefined, fallback: string) {
     const trimmed = value?.trim()
