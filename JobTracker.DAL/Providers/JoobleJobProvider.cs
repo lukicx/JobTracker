@@ -14,19 +14,25 @@ public class JoobleJobProvider
     {
         _httpClient = httpClient;
 
-        _apiKey = configuration["Jooble:ApiKey"] ?? throw new InvalidOperationException("Jooble API key is not configured.");
+        _apiKey = configuration["Jooble:ApiKey"] ?? string.Empty;
     }
 
-    public async Task<List<ExternalJob>> SearchJobsAsync(string keywords, string location)
+    public async Task<(List<ExternalJob> Jobs, bool HasMore)> SearchJobsAsync(
+        string keywords, string location, int page = 1)
     {
+        if (string.IsNullOrWhiteSpace(_apiKey))
+        {
+            throw new InvalidOperationException("Jooble API key is not configured.");
+        }
+
         var request = new JoobleSearchRequest
         {
             Keywords = keywords,
             Location = location,
-            Page = 1
+            Page = page
         };
 
-        var response = await _httpClient.PostAsJsonAsync($"https://cz.jooble.org/api/{_apiKey}", request);
+        using var response = await _httpClient.PostAsJsonAsync($"https://cz.jooble.org/api/{_apiKey}", request);
 
         response.EnsureSuccessStatusCode();
 
@@ -35,13 +41,13 @@ public class JoobleJobProvider
 
         if (joobleResponse is null)
         {
-            return [];
+            throw new InvalidOperationException("Jooble did not return a recognized search response.");
         }
 
-        return joobleResponse.Jobs
+        var jobs = joobleResponse.Jobs
             .Select(job => new ExternalJob
             {
-                ExternalId = job.Id.ToString(),
+                ExternalId = $"jooble:{job.Id}",
                 Company = job.Company,
                 Position = job.Title,
                 Location = job.Location,
@@ -49,5 +55,8 @@ public class JoobleJobProvider
                 Description = job.Snippet
             })
             .ToList();
+
+        var hasMore = jobs.Count > 0 && (long)page * request.ResultOnPage < joobleResponse.TotalCount;
+        return (jobs, hasMore);
     }
 }

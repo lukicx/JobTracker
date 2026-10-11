@@ -30,7 +30,13 @@ builder.Services
     .AddIdentityApiEndpoints<User>()
     .AddEntityFrameworkStores<AppDbContext>();
 
-builder.Services.AddHttpClient<JoobleJobProvider>();
+builder.Services.AddHttpClient<JoobleJobProvider>(client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient<JobsCzJobProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("JobTracker/1.0");
+});
+builder.Services.AddScoped<JobSearchService>();
 builder.Services.AddScoped<JobApplicationService>();
 
 builder.Services.AddCors(options =>
