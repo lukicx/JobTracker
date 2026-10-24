@@ -547,7 +547,13 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                         <h1 id="search-title">Find your next role.</h1>
                         <p className="muted">A good opportunity is a search away.</p>
                     </div>
-                    <div className="search-bar">
+                    <form
+                        className="search-bar"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            handleSearch()
+                        }}
+                    >
                         <div className="field">
                             <label htmlFor="job-search">Role or keyword</label>
                             <input
@@ -581,8 +587,8 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                                 <option value="jooble">Jooble</option>
                             </select>
                         </div>
-                        <button onClick={() => handleSearch()} disabled={loadingJobs || !search.trim()}>Search</button>
-                    </div>
+                        <button type="submit" disabled={loadingJobs || !search.trim()}>Search</button>
+                    </form>
                     <div ref={resultsRef} className="search-results-start" tabIndex={-1}>
                         {loadingJobs && <p className="loading-message" role="status">{pendingPage === null ? 'Loading jobs...' : `Loading page ${pendingPage}...`}</p>}
                         {hasSearched && (
