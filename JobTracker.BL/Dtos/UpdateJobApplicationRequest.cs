@@ -6,17 +6,17 @@ namespace JobTracker.BL.Dtos;
 public class UpdateJobApplicationRequest
 {
     [Required]
-    [MaxLength(50)]
+    [MaxLength(JobApplicationLimits.TextMaxLength)]
     public string Company { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(50)]
+    [MaxLength(JobApplicationLimits.TextMaxLength)]
     public string Position { get; set; } = string.Empty;
 
     [Required] 
     public ApplicationStatus Status { get; set; }
 
-    [MaxLength(50)]
+    [MaxLength(JobApplicationLimits.TextMaxLength)]
     public string? Location { get; set; }
 
     [Url]
