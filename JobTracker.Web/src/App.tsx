@@ -103,7 +103,7 @@ async function getAuthError(response: Response, fallback: string): Promise<strin
 function JobTracker({ onLogout }: { onLogout: () => void }) {
     const [email, setEmail] = useState('')
     const [pwd, setPwd] = useState('')
-    const [token, setToken] = useState<string | null>(null)
+    const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'))
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
     
     const [jobs, setJobs] = useState<ExternalJob[]>([])
@@ -405,6 +405,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
             }
             const result = await response.json()
             setToken(result.accessToken)
+            sessionStorage.setItem('token', result.accessToken)
             setMessage('Logged in successfully.')
         }
         catch (error){
@@ -458,7 +459,15 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                         </p>
                         <div className="intro-note">From the first interesting role to your next offer.</div>
                     </section>
-                    <section className="auth-card" aria-labelledby="auth-title">
+                    <form
+                        className="auth-card"
+                        aria-labelledby="auth-title"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            if (authMode === 'login') handleLogin()
+                            else handleRegister()
+                        }}
+                    >
                         <h2 id="auth-title">{authMode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
                         <p className="muted auth-description">
                             {authMode === 'login'
@@ -473,7 +482,7 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                                 id="email"
                                 type="email"
                                 placeholder="you@example.com"
-                                autoComplete="email"
+                                autoComplete="username"
                                 value={email}
                                 onChange={event => setEmail(event.target.value)}
                             />
@@ -491,23 +500,23 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                         </div>
                         {authMode === 'login' && (
                             <div className="auth-actions">
-                                <button onClick={handleLogin}>Login</button>
+                                <button type="submit">Login</button>
                                 <p className="auth-switch">
                                     New here?{' '}
-                                    <button className="link-button" onClick={() => setAuthMode('register')}>Create account</button>
+                                    <button type="button" className="link-button" onClick={() => setAuthMode('register')}>Create account</button>
                                 </p>
                             </div>
                         )}
                         {authMode === 'register' && (
                             <div className="auth-actions">
-                                <button onClick={handleRegister}>Register</button>
+                                <button type="submit">Register</button>
                                 <p className="auth-switch">
                                     Already have an account?{' '}
-                                    <button className="link-button" onClick={() => setAuthMode('login')}>Back to login</button>
+                                    <button type="button" className="link-button" onClick={() => setAuthMode('login')}>Back to login</button>
                                 </p>
                             </div>
                         )}
-                    </section>
+                    </form>
                 </div>
             </main>
         )
@@ -670,7 +679,11 @@ function App() {
     return (
         <JobTracker
             key={session}
-            onLogout={() => setSession(current => current + 1)}
+            onLogout={() =>
+            {
+                sessionStorage.removeItem('token')
+                setSession(current => current + 1)
+            }}
         />
     )
 }
