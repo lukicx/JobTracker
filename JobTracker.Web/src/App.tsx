@@ -254,9 +254,10 @@ function JobTracker({ onLogout }: { onLogout: () => void }) {
                     body: JSON.stringify(request)
                 }
             )
-            if(response.status == 409)
+            if(response.status == 409){
                 setMessage(`You already saved this job.`)
                 return
+            }
             if (!response.ok) {
                 setError(`Could not save application. HTTP ${response.status}`)
                 return
