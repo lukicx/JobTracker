@@ -52,10 +52,19 @@ public class JobApplicationService
         return application is null ? null : ToResponse(application);
     }
 
-    public async Task<JobApplicationResponse> CreateAsync(
+    public async Task<JobApplicationResponse?> CreateAsync(
         string userId,
         CreateJobApplicationRequest request)
     {
+        
+        if (request.JobUrl is not null)
+        {
+            bool alreadyExists = await _db.Applications.AnyAsync(a =>
+                a.UserId == userId && a.JobUrl == request.JobUrl);
+
+            if (alreadyExists) return null;
+        }
+        
         var application = new JobApplication
         {
             Company = request.Company,
@@ -66,7 +75,7 @@ public class JobApplicationService
             UserId = userId,
             CreatedAt = DateTime.UtcNow
         };
-
+        
         _db.Applications.Add(application);
         await _db.SaveChangesAsync();
 

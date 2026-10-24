@@ -60,6 +60,11 @@ public class ApplicationsController : ControllerBase
         }
 
         var application = await _applicationService.CreateAsync(userId, request);
+
+        if (application is null)
+        {
+            return Conflict();
+        }
         return CreatedAtAction(nameof(GetById), new { id = application.Id }, application);
     }
 
